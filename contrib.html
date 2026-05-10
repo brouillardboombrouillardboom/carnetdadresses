@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>contributeur — carnet d'adresses</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scrollbar-width: none; }
+        html::-webkit-scrollbar { display: none; }
+        body { font-family: monospace; font-size: 13px; background: #fafaf8; color: #1a1a1a; margin: 0; padding: 2rem; }
+
+        #login-screen { position: fixed; inset: 0; background: #fafaf8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 999; }
+        #login-screen h1 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #888; margin: 0; }
+        #login-screen input { font-family: monospace; font-size: 14px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 8px 12px; outline: none; text-align: center; letter-spacing: .2em; width: 180px; }
+        #login-error { font-size: 11px; color: #c00; min-height: 1em; }
+
+        h1 { font-size: 13px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: #888; margin: 0 0 2rem; }
+        h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #1a1a1a; margin: 0; padding: .5rem 0 .3rem; border-top: 1px solid #1a1a1a; }
+
+        .tabs { display: flex; border-bottom: 1px solid #1a1a1a; margin-bottom: 1.5rem; }
+        .tab { padding: 6px 16px; cursor: pointer; border: 1px solid transparent; border-bottom: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        .tab.active { border-color: #1a1a1a; margin-bottom: -1px; background: #fafaf8; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-block { border: 1px solid #1a1a1a; border-top: none; padding: 1rem; }
+        .form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        input[type=text], input[type=password], select { font-family: monospace; font-size: 12px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 5px 8px; outline: none; color: #1a1a1a; flex: 1; min-width: 140px; }
+        input:focus, select:focus { background: #f0f0ec; }
+        button { font-family: monospace; font-size: 12px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+        button:hover { background: #1a1a1a; color: #fafaf8; }
+
+        .notice { font-size: 11px; color: #888; margin: .4rem 0; line-height: 1.5; }
+        .slug-preview { font-size: 11px; color: #888; margin: 2px 0 8px; }
+        .slug-preview a { color: #888; }
+
+        .tag-suggestions { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 12px; }
+        .tag-pill { font-size: 10px; padding: 2px 7px; border: 1px solid #ccc; color: #666; cursor: pointer; background: #f5f5f2; }
+        .tag-pill:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+        .status { font-size: 11px; padding: 3px 8px; border: 1px solid; display: inline-block; margin-left: 6px; }
+        .status.ok { color: #2a7a2a; border-color: #2a7a2a; }
+        .status.err { color: #c00; border-color: #c00; }
+
+        .upload-zone { border: 1px dashed #1a1a1a; padding: 1.5rem; text-align: center; cursor: pointer; margin-bottom: 8px; transition: background .15s; font-size: 12px; color: #888; }
+        .upload-zone:hover { background: #f0f0ec; }
+        .upload-zone input[type=file] { display: none; }
+        .file-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .file-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 4px 8px; border: 1px solid #e0e0da; }
+        .file-item .fname { flex: 1; }
+        .file-item .fsize { color: #888; }
+        .file-item .ferr { color: #c00; }
+        .file-item .fok { color: #2a7a2a; }
+        .file-thumb { width: 36px; height: 36px; object-fit: cover; border: 1px solid #ddd; flex-shrink: 0; }
+        .upload-progress { font-size: 11px; color: #888; margin-top: 4px; }
+
+        .multipage-choice { display: none; border: 1px solid #1a1a1a; padding: .75rem; margin-bottom: 8px; background: #f5f5f2; }
+        .multipage-choice p { margin: 0 0 8px; font-size: 11px; color: #888; }
+        .multipage-choice .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mode-desc { margin: 8px 0 0; font-size: 11px; color: #888; }
+        /* point 4 : tags ajoutés en orange */
+        .tag-added { background: #ff6644 !important; color: #1a1a1a !important; border-color: #1a1a1a !important; }
+
+        /* point 3 : caption mode picker */
+        .caption-mode { display: none; margin-bottom: 8px; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 10px; background: #f5f5f2; border: 1px solid #e0e0da; }
+        .caption-mode.show { display: flex; }
+        .caption-mode label { font-size: 11px; cursor: pointer; }
+        .caption-mode input[type=radio] { margin-right: 4px; }
+        .caption-individual-list { display: none; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .caption-individual-list.show { display: flex; }
+        .caption-individual-list .row { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+        .caption-individual-list .row img { width: 36px; height: 36px; object-fit: cover; border: 1px solid #ddd; flex-shrink: 0; }
+        .caption-individual-list .row input { flex: 1; }
+        .univers-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; padding: 8px 0; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
+        .univers-label { font-size: 11px; color: #888; letter-spacing: .08em; text-transform: uppercase; padding-left: 4px; }
+        .univers-btn-admin { font-family: monospace; font-size: 12px; padding: 4px 14px; border: 1px solid #1a1a1a; background: #fafaf8; cursor: pointer; }
+        .univers-btn-admin.active { background: #ff6644; color: #1a1a1a; }
+        .univers-btn-admin:hover { background: #1a1a1a; color: #fafaf8; }
+        .univers-btn-admin.active:hover { background: #ff6644; color: #1a1a1a; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <h1>carnet d'adresses — contributeur</h1>
+    <input type="password" id="pwd-input" placeholder="••••" onkeydown="if(event.key==='Enter')tryLogin()">
+    <button onclick="tryLogin()">entrer</button>
+    <span id="login-error"></span>
+</div>
+
+<div id="app" style="display:none;">
+    <h1>contributeur — carnet d'adresses <a href="index.html" style="font-size:11px;color:#aaa;text-decoration:none;margin-left:1rem;">← retour au site</a></h1>
+
+    <div class="univers-bar">
+        <span class="univers-label">univers :</span>
+        <button class="univers-btn-admin active" data-univers="visuel" onclick="setContribUnivers('visuel')">visuel</button>
+        <button class="univers-btn-admin" data-univers="film" onclick="setContribUnivers('film')">film</button>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('entrees')">+ entrée</div>
+        <div class="tab" onclick="switchTab('images')">+ image</div>
+        <div class="tab" onclick="switchTab('liste')">voir entrées</div>
+    </div>
+
+    <!-- ENTRÉES -->
+    <div class="tab-content active" id="tab-entrees">
+        <div class="form-block">
+            <div class="form-row">
+                <select id="e-cat">
+                    <option value="">catégorie…</option>
+                    <option value="structure">structure</option>
+                    <option value="personnes">personnes</option>
+                    <option value="mouvements">mouvements</option>
+                    <option value="objet">objet (support)</option>
+                    <option value="impression">impression (support)</option>
+                    <option value="couleur">couleur</option>
+                    <option value="pays">pays</option>
+                    <option value="ville">ville</option>
+                    <option value="date">date</option>
+                </select>
+                <input type="text" id="e-name" placeholder="nom affiché" oninput="updateSlugPreview()">
+            </div>
+            <div class="slug-preview" id="slug-preview">page : —</div>
+            <div class="form-row">
+                <input type="text" id="e-tags" placeholder="tags séparés par virgules">
+                <button onclick="addEntree()">+ ajouter</button>
+                <span id="e-status"></span>
+            </div>
+            <p class="notice">Tags existants :</p>
+            <div class="tag-suggestions" id="e-tag-suggestions"></div>
+        </div>
+    </div>
+
+    <!-- LISTE LECTURE SEULE -->
+    <div class="tab-content" id="tab-liste">
+        <div class="admin-search" style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;padding:6px 10px;border:1px solid #1a1a1a;">
+            <span style="font-size:11px;color:#888;">⌕</span>
+            <input type="text" id="search-liste" placeholder="filtrer par nom, catégorie, tag…" oninput="filterListe()" style="flex:1;border:none;outline:none;font-family:monospace;font-size:12px;background:transparent;padding:2px 0;">
+            <span style="font-size:11px;color:#aaa;cursor:pointer;padding:0 6px;" onclick="document.getElementById('search-liste').value=''; filterListe();">✕</span>
+        </div>
+        <p class="notice" style="font-size:11px;color:#888;">lecture seule — pour modifier, contacter l'admin.</p>
+        <div id="liste-entrees"></div>
+    </div>
+
+    <!-- IMAGES -->
+    <div class="tab-content" id="tab-images">
+        <div class="form-block">
+            <p class="notice">Chaque image ≤ <strong>250 ko</strong> individuellement.</p>
+            <div class="upload-zone" onclick="document.getElementById('file-input').click()"
+                ondragover="event.preventDefault();this.style.background='#f0f0ec'"
+                ondragleave="this.style.background=''"
+                ondrop="handleDrop(event)">
+                cliquer ou glisser des images ici
+                <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)">
+            </div>
+            <div class="file-list" id="file-list"></div>
+            <div class="multipage-choice" id="multipage-choice">
+                <p>plusieurs images — comment les enregistrer ?</p>
+                <div class="btns">
+                    <button id="btn-individual" onclick="setMode('individual')">images individuelles</button>
+                    <button id="btn-multipage" onclick="setMode('multipage')">édition multi-pages</button>
+                </div>
+                <p class="mode-desc" id="mode-desc"></p>
+            </div>
+            <div class="caption-mode" id="caption-mode-picker">
+                <span style="font-size:11px;color:#888;">caption :</span>
+                <label><input type="radio" name="captionmode" value="shared" checked onchange="setCaptionMode('shared')">une seule pour toutes</label>
+                <label><input type="radio" name="captionmode" value="individual" onchange="setCaptionMode('individual')">une par image</label>
+            </div>
+            <div class="form-row" id="i-caption-shared-row">
+                <input type="text" id="i-caption" placeholder="caption (optionnel)">
+            </div>
+            <div class="caption-individual-list" id="i-caption-individual-list"></div>
+            <div class="form-row">
+                <input type="text" id="i-tags" placeholder="tags séparés par virgules">
+                <button onclick="uploadAndSave()">↑ uploader & enregistrer</button>
+                <span id="i-status"></span>
+            </div>
+            <div class="upload-progress" id="upload-progress"></div>
+            <p class="notice">Tags existants :</p>
+            <div class="tag-suggestions" id="i-tag-suggestions"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CFG = {
+    url: 'https://nyzfqwwdkeqinnxduyqs.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55emZxd3dka2VxaW5ueGR1eXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjQ5MTUsImV4cCI6MjA5MjM0MDkxNX0.nJ4HnkY34lhHPyWU6kCYoKFzdbi5ZTO398hQ0c9wiVQ',
+    pwdHash: '5ebb49e499a6613e832e433a2722edd0d2947d56fdb4d684af0f06c631fdf633',
+};
+const SUPABASE_URL = CFG.url;
+const H = { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': 'application/json' };
+const MAX_SIZE = 250 * 1024;
+
+async function hashPwd(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function tryLogin() {
+    const h = await hashPwd(document.getElementById('pwd-input').value);
+    if (h === CFG.pwdHash) {
+        sessionStorage.setItem('carnet_and', h);
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
+        updateCategorySelector();
+        fetchTags();
+    } else {
+        document.getElementById('login-error').textContent = 'mot de passe incorrect';
+        document.getElementById('pwd-input').value = '';
+    }
+}
+
+let currentUnivers = sessionStorage.getItem('contrib_univers') || 'visuel';
+
+function setContribUnivers(u) {
+    currentUnivers = u;
+    sessionStorage.setItem('contrib_univers', u);
+    document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === u));
+    updateCategorySelector();
+    fetchTags();
+    if (document.getElementById('tab-liste')?.classList.contains('active')) fetchListeEntrees();
+}
+
+function updateCategorySelector() {
+    const sel = document.getElementById('e-cat');
+    if (!sel) return;
+    const visuelOpts = [
+        ['', 'catégorie…'],
+        ['structure','structure'],['personnes','personnes'],['mouvements','mouvements'],
+        ['objet','objet (support)'],['impression','impression (support)'],
+        ['couleur','couleur'],['pays','pays'],['ville','ville'],['date','date']
+    ];
+    const filmOpts = [
+        ['', 'catégorie…'],
+        ['film','film'],
+        ['realisateur','réalisateur'],['acteur','acteur'],
+        ['date','date'],['genre','genre'],['pays','pays']
+    ];
+    const opts = (currentUnivers === 'film') ? filmOpts : visuelOpts;
+    sel.innerHTML = '';
+    opts.forEach(([v, l]) => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = l;
+        sel.appendChild(o);
+    });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('carnet_and') === CFG.pwdHash) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
+        updateCategorySelector();
+        fetchTags();
+    }
+});
+
+let allTags = [];
+
+async function fetchTags() {
+    const [re, ri] = await Promise.all([
+        fetch(`${CFG.url}/rest/v1/entrees?select=tags&univers=eq.${currentUnivers}&pending=is.false`, { headers: H }).then(r=>r.json()),
+        fetch(`${CFG.url}/rest/v1/images?select=tags&univers=eq.${currentUnivers}&pending=is.false`, { headers: H }).then(r=>r.json()),
+    ]);
+    const s = new Set();
+    [...re,...ri].forEach(i => i.tags?.forEach(t => s.add(t)));
+    allTags = [...s].sort();
+    renderTagSuggestions();
+}
+
+function highlightAddedTags(suggestionsId, inputId) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    const added = inp.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    document.querySelectorAll('#' + suggestionsId + ' .tag-pill').forEach(pill => {
+        pill.classList.toggle('tag-added', added.includes(pill.dataset.tag));
+    });
+}
+
+function renderTagSuggestions() {
+    [['e-tag-suggestions','e-tags'],['i-tag-suggestions','i-tags']].forEach(([cid,iid]) => {
+        const c = document.getElementById(cid);
+        c.innerHTML = '';
+        const inp = document.getElementById(iid);
+        allTags.forEach(t => {
+            const s = document.createElement('span');
+            s.className = 'tag-pill'; s.textContent = t;
+            s.dataset.tag = t.toLowerCase();
+            s.onclick = () => {
+                const cur = inp.value.trim();
+                inp.value = cur ? cur + ', ' + t : t;
+                highlightAddedTags(cid, iid);
+            };
+            c.appendChild(s);
+        });
+        if (!inp.dataset.highlightInit) {
+            inp.addEventListener('input', () => highlightAddedTags(cid, iid));
+            inp.dataset.highlightInit = '1';
+        }
+        highlightAddedTags(cid, iid);
+    });
+}
+
+function toSlug(name) {
+    return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+
+function updateSlugPreview() {
+    const name = document.getElementById('e-name').value.trim();
+    const slug = name ? toSlug(name) : null;
+    document.getElementById('slug-preview').innerHTML = slug
+        ? `page : <a href="page.html?slug=${slug}" target="_blank">page.html?slug=${slug}</a>`
+        : 'page : —';
+}
+
+function setStatus(id, ok, msg) {
+    const el = document.getElementById(id);
+    el.className = 'status '+(ok?'ok':'err'); el.textContent = msg;
+    if (msg) setTimeout(()=>el.textContent='',3000);
+}
+
+async function addEntree() {
+    const cat = document.getElementById('e-cat').value;
+    const name = document.getElementById('e-name').value.trim();
+    const tagsRaw = document.getElementById('e-tags').value.trim();
+    if (!cat||!name) { setStatus('e-status',false,'⚠ champs manquants'); return; }
+    const slug = toSlug(name);
+    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const r = await fetch(`${CFG.url}/rest/v1/entrees`, {
+        method:'POST', headers:{...H,Prefer:'return=representation'},
+        body: JSON.stringify({ categorie:cat, name, href:`page.html?slug=${slug}`, slug, tags, contenu:'', univers: currentUnivers, pending: true })
+    });
+    if (r.ok) {
+        setStatus('e-status',true,'✓ ajouté');
+        document.getElementById('e-name').value='';
+        document.getElementById('e-tags').value='';
+        document.getElementById('slug-preview').innerHTML='page : —';
+        fetchTags();
+    } else {
+        const err = await r.json().catch(()=>({}));
+        setStatus('e-status',false, err.code==='23505' ? '⚠ déjà existant' : '✗ erreur');
+    }
+}
+
+// --- upload images ---
+let selectedFiles = [], uploadMode = 'individual';
+
+function handleDrop(e) {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+    selectedFiles = [...files];
+    uploadMode = 'individual';
+    renderFileList();
+    const box = document.getElementById('multipage-choice');
+    box.style.display = selectedFiles.length > 1 ? 'block' : 'none';
+    if (selectedFiles.length > 1) setMode('individual');
+}
+
+function setMode(mode) {
+    uploadMode = mode;
+    document.getElementById('btn-individual').style.background = mode==='individual' ? '#1a1a1a' : '';
+    document.getElementById('btn-individual').style.color = mode==='individual' ? '#fafaf8' : '';
+    document.getElementById('btn-multipage').style.background = mode==='multipage' ? '#1a1a1a' : '';
+    document.getElementById('btn-multipage').style.color = mode==='multipage' ? '#fafaf8' : '';
+    document.getElementById('mode-desc').textContent = mode==='individual'
+        ? `${selectedFiles.length} images séparées`
+        : `1 objet multi-pages (zine, livre…)`;
+    const picker = document.getElementById('caption-mode-picker');
+    if (picker) picker.classList.toggle('show', mode === 'individual' && selectedFiles.length > 1);
+    if (mode === 'multipage') setCaptionMode('shared');
+}
+
+let captionMode = 'shared';
+function setCaptionMode(m) {
+    captionMode = m;
+    document.getElementById('i-caption-shared-row').style.display = m === 'shared' ? '' : 'none';
+    const list = document.getElementById('i-caption-individual-list');
+    list.classList.toggle('show', m === 'individual');
+    if (m === 'individual') renderIndividualCaptions();
+    document.querySelectorAll('input[name=captionmode]').forEach(r => r.checked = (r.value === m));
+}
+function renderIndividualCaptions() {
+    const list = document.getElementById('i-caption-individual-list');
+    list.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const im = document.createElement('img');
+        im.src = URL.createObjectURL(f);
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = `cap-individual-${i}`;
+        inp.placeholder = `caption pour ${f.name}…`;
+        row.append(im, inp);
+        list.appendChild(row);
+    });
+}
+
+function renderFileList() {
+    const list = document.getElementById('file-list');
+    list.innerHTML = '';
+    selectedFiles.forEach((f,i) => {
+        const ok = f.size <= MAX_SIZE;
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        const im = document.createElement('img'); im.className = 'file-thumb'; im.src = URL.createObjectURL(f);
+        const fname = document.createElement('span'); fname.className = 'fname'; fname.textContent = f.name;
+        const fsize = document.createElement('span'); fsize.className = 'fsize'; fsize.textContent = `${(f.size/1024).toFixed(0)} ko`;
+        const fok = document.createElement('span'); fok.className = ok ? 'fok' : 'ferr'; fok.textContent = ok ? '✓' : '✗ > 250ko';
+        div.append(im, fname, fsize, fok);
+        list.appendChild(div);
+    });
+}
+
+async function uploadFile(file) {
+    const path = `img/${Date.now()}_${file.name.replace(/[^a-z0-9.\-_]/gi,'_')}`;
+    const r = await fetch(`${CFG.url}/storage/v1/object/images/${path}`, {
+        method:'POST', headers:{apikey:CFG.key,Authorization:`Bearer ${CFG.key}`,'Content-Type':file.type}, body:file
+    });
+    if (!r.ok) throw new Error('upload échoué : '+file.name);
+    return `${CFG.url}/storage/v1/object/public/images/${path}`;
+}
+
+async function uploadAndSave() {
+    const sharedCaption = document.getElementById('i-caption').value.trim();
+    const captions = (captionMode === 'individual')
+        ? selectedFiles.map((_, i) => document.getElementById(`cap-individual-${i}`)?.value.trim() || '')
+        : null;
+    const caption = sharedCaption;
+    const tagsRaw = document.getElementById('i-tags').value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const progress = document.getElementById('upload-progress');
+
+    if (!selectedFiles.length) { setStatus('i-status',false,'⚠ aucun fichier'); return; }
+    if (selectedFiles.some(f=>f.size>MAX_SIZE)) { setStatus('i-status',false,'✗ image(s) > 250ko'); return; }
+
+    progress.textContent = 'upload en cours…';
+    try {
+        const urls = [];
+        for (let i=0;i<selectedFiles.length;i++) {
+            progress.textContent = `upload ${i+1} / ${selectedFiles.length}…`;
+            urls.push(await uploadFile(selectedFiles[i]));
+        }
+        const bodies = uploadMode==='multipage'
+            ? [{ pages:urls, caption, tags, univers: currentUnivers, pending: true }]
+            : urls.map((url, i) => ({
+                src: url,
+                caption: (captionMode === 'individual') ? (captions[i] || '') : caption,
+                tags,
+                univers: currentUnivers,
+                pending: true
+            }));
+
+        for (const body of bodies) {
+            const r = await fetch(`${CFG.url}/rest/v1/images`, {
+                method:'POST', headers:{...H,Prefer:'return=representation'}, body:JSON.stringify(body)
+            });
+            if (!r.ok) { setStatus('i-status',false,'✗ erreur base de données'); return; }
+        }
+        setStatus('i-status',true,'✓ enregistré');
+        selectedFiles=[];
+        document.getElementById('file-list').innerHTML='';
+        document.getElementById('multipage-choice').style.display='none';
+        document.getElementById('i-caption').value='';
+        setCaptionMode('shared');
+        document.getElementById('caption-mode-picker').classList.remove('show');
+        document.getElementById('i-tags').value='';
+        fetchTags();
+    } catch(err) { setStatus('i-status',false,'✗ '+err.message); }
+    progress.textContent='';
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['entrees','images','liste'][i]===id));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById('tab-'+id).classList.add('active');
+    if (id === 'liste') fetchListeEntrees();
+}
+
+// === voir entrées (lecture seule) ===
+let allEntrees = [];
+
+async function fetchListeEntrees() {
+    const r = await fetch(`${CFG.url}/rest/v1/entrees?univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: H });
+    allEntrees = await r.json();
+    renderListeEntrees();
+}
+
+function renderListeEntrees() {
+    const list = document.getElementById('liste-entrees');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!allEntrees.length) {
+        list.innerHTML = '<p style="font-size:12px;color:#aaa;">aucune entrée pour cet univers.</p>';
+        return;
+    }
+    // grouper par catégorie
+    const cats = {};
+    allEntrees.forEach(e => {
+        if (!cats[e.categorie]) cats[e.categorie] = [];
+        cats[e.categorie].push(e);
+    });
+    Object.keys(cats).sort().forEach(cat => {
+        const label = document.createElement('div');
+        label.className = 'cat-label';
+        label.style.cssText = 'font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin:1rem 0 4px;padding:2px 4px;border-bottom:1px solid #ddd;';
+        label.textContent = cat;
+        list.appendChild(label);
+        cats[cat].forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'list-item';
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid #eee;font-size:12px;';
+            row.dataset.search = ((item.name||'') + ' ' + cat + ' ' + (item.tags||[]).join(' ')).toLowerCase();
+            const nm = document.createElement('span');
+            nm.style.cssText = 'flex:1;font-family:monospace;';
+            nm.textContent = item.name;
+            const lk = document.createElement('a');
+            const sep = item.href && item.href.includes('?') ? '&' : '?';
+            lk.href = item.href + (item.univers ? `${sep}univers=${item.univers}` : '');
+            lk.target = '_blank';
+            lk.style.cssText = 'font-size:10px;color:#888;text-decoration:none;';
+            lk.textContent = item.href || '';
+            const tg = document.createElement('span');
+            tg.style.cssText = 'font-size:10px;color:#aaa;';
+            tg.textContent = (item.tags||[]).join(', ');
+            row.append(nm, lk, tg);
+            list.appendChild(row);
+        });
+    });
+}
+
+function filterListe() {
+    const q = (document.getElementById('search-liste')?.value || '').toLowerCase().trim();
+    document.querySelectorAll('#liste-entrees .list-item').forEach(row => {
+        const txt = row.dataset.search || '';
+        row.style.display = (!q || txt.includes(q)) ? '' : 'none';
+    });
+    document.querySelectorAll('#liste-entrees .cat-label').forEach(label => {
+        let next = label.nextElementSibling;
+        let visible = false;
+        while (next && !next.classList.contains('cat-label')) {
+            if (next.style.display !== 'none') { visible = true; break; }
+            next = next.nextElementSibling;
+        }
+        label.style.display = visible ? '' : 'none';
+    });
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>admin — carnet d'adresses</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scrollbar-width: none; }
+        html::-webkit-scrollbar { display: none; }
+        body { font-family: monospace; font-size: 13px; background: #fafaf8; color: #1a1a1a; margin: 0; padding: 2rem; }
+
+        #login-screen { position: fixed; inset: 0; background: #fafaf8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 999; }
+        #login-screen h1 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #888; margin: 0; }
+        #login-screen input { font-family: monospace; font-size: 14px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 8px 12px; outline: none; text-align: center; letter-spacing: .2em; width: 180px; }
+        #login-error { font-size: 11px; color: #c00; min-height: 1em; }
+
+        h1 { font-size: 13px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: #888; margin: 0 0 2rem; }
+        h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #1a1a1a; margin: 0; padding: .5rem 0 .3rem; border-top: 1px solid #1a1a1a; }
+
+        .tabs { display: flex; border-bottom: 1px solid #1a1a1a; margin-bottom: 1.5rem; }
+        .tab { padding: 6px 16px; cursor: pointer; border: 1px solid transparent; border-bottom: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+        .tab.active { border-color: #1a1a1a; margin-bottom: -1px; background: #fafaf8; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-block { border: 1px solid #1a1a1a; border-top: none; padding: 1rem; }
+        .form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        input[type=text], input[type=password], select { font-family: monospace; font-size: 12px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 5px 8px; outline: none; color: #1a1a1a; flex: 1; min-width: 140px; }
+        input:focus, select:focus { background: #f0f0ec; }
+        button { font-family: monospace; font-size: 12px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+        button:hover { background: #1a1a1a; color: #fafaf8; }
+        button.del { border-color: #c00; color: #c00; padding: 3px 8px; }
+        button.del:hover { background: #c00; color: #fff; }
+
+        .notice { font-size: 11px; color: #888; margin: .4rem 0; line-height: 1.5; }
+        .slug-preview { font-size: 11px; color: #888; margin: 2px 0 8px; }
+        .slug-preview a { color: #888; }
+
+        .tag-suggestions { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 12px; }
+        .tag-pill { font-size: 10px; padding: 2px 7px; border: 1px solid #ccc; color: #666; cursor: pointer; background: #f5f5f2; }
+        .tag-pill:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+        .list { border: 1px solid #1a1a1a; border-top: none; }
+        .list-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid #e0e0da; flex-wrap: wrap; }
+        .item-name { font-weight: 500; min-width: 130px; }
+        .item-sub { color: #888; font-size: 11px; text-decoration: none; }
+        .item-sub:hover { color: #1a1a1a; }
+        .item-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+        .tag-badge { font-size: 10px; padding: 1px 5px; border: 1px solid #ddd; color: #888; background: #f5f5f2; }
+        .item-spacer { flex: 1; }
+        .cat-label { font-size: 10px; text-transform: uppercase; color: #aaa; letter-spacing: .08em; padding: 4px 10px; background: #f5f5f2; border-top: 1px solid #e0e0da; }
+        .img-thumb { width: 50px; height: 50px; object-fit: cover; border: 1px solid #ddd; flex-shrink: 0; }
+        .status { font-size: 11px; padding: 3px 8px; border: 1px solid; display: inline-block; margin-left: 6px; }
+        .status.ok { color: #2a7a2a; border-color: #2a7a2a; }
+        .status.err { color: #c00; border-color: #c00; }
+
+        /* upload zone */
+        .upload-zone {
+            border: 1px dashed #1a1a1a; padding: 1.5rem; text-align: center;
+            cursor: pointer; margin-bottom: 8px; transition: background .15s;
+            font-size: 12px; color: #888;
+        }
+        .upload-zone:hover, .upload-zone.drag { background: #f0f0ec; }
+        .upload-zone input[type=file] { display: none; }
+
+        .file-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .file-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 4px 8px; border: 1px solid #e0e0da; }
+        .file-item .fname { flex: 1; }
+        .file-item .fsize { color: #888; }
+        .file-item .ferr { color: #c00; }
+        .file-item .fok { color: #2a7a2a; }
+        .file-thumb { width: 36px; height: 36px; object-fit: cover; border: 1px solid #ddd; flex-shrink: 0; }
+        .upload-progress { font-size: 11px; color: #888; margin-top: 4px; }
+
+        /* édition inline */
+        .edit-row { display: none; background: #f5f5f2; border-top: 1px solid #e0e0da; padding: 8px 10px; flex-direction: column; gap: 6px; width: 100%; }
+        .edit-row.open { display: flex; }
+        .edit-row input[type=text] { font-size: 11px; padding: 3px 6px; }
+        .edit-tag-list { display: flex; flex-wrap: wrap; gap: 4px; }
+        .edit-tag { font-size: 10px; padding: 2px 6px; border: 1px solid #1a1a1a; display: inline-flex; align-items: center; gap: 4px; background: #fafaf8; }
+        .edit-tag .rm { cursor: pointer; color: #c00; font-size: 10px; }
+        .edit-row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .inline-save { font-size: 11px; }
+        .item-edit-btn { font-size: 10px; padding: 2px 7px; border: 1px solid #aaa; color: #666; background: #fafaf8; cursor: pointer; }
+        .item-edit-btn:hover { background: #1a1a1a; color: #fafaf8; border-color: #1a1a1a; }
+
+        /* barre de recherche admin */
+        .admin-search { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; padding: 6px 10px; border: 1px solid #1a1a1a; }
+        .admin-search input { flex: 1; border: none; outline: none; font-family: monospace; font-size: 12px; background: transparent; padding: 2px 0; }
+        .admin-search .clear { font-size: 11px; color: #aaa; cursor: pointer; padding: 0 6px; }
+        .admin-search .clear:hover { color: #c00; }
+
+        /* point 4 : tags ajoutés en orange */
+        .tag-added { background: #ff6644 !important; color: #1a1a1a !important; border-color: #1a1a1a !important; }
+
+        /* point 2 : grille images régulière */
+        .img-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 10px; border: 1px solid #1a1a1a; border-top: none; }
+        .img-admin-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid #e0e0da; padding: 6px; background: #fafaf8; }
+        .img-admin-card img { width: 100%; aspect-ratio: 1; object-fit: cover; background: #f0f0ec; border: 1px solid #ddd; }
+        .img-admin-card .meta { font-size: 10px; color: #888; line-height: 1.3; word-break: break-word; }
+        .img-admin-card .meta strong { color: #1a1a1a; font-weight: 500; }
+        .img-admin-card .actions { display: flex; gap: 4px; flex-wrap: wrap; }
+        .img-admin-card .actions button { font-size: 10px; padding: 2px 6px; }
+
+        /* point 3 : caption mode picker */
+        .caption-mode { display: none; margin-bottom: 8px; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 10px; background: #f5f5f2; border: 1px solid #e0e0da; }
+        .caption-mode.show { display: flex; }
+        .caption-mode label { font-size: 11px; cursor: pointer; }
+        .caption-mode input[type=radio] { margin-right: 4px; }
+        .caption-individual-list { display: none; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .caption-individual-list.show { display: flex; }
+        .caption-individual-list .row { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+        .caption-individual-list .row img { width: 36px; height: 36px; object-fit: cover; border: 1px solid #ddd; flex-shrink: 0; }
+        .caption-individual-list .row input { flex: 1; }
+        /* sélecteur univers admin */
+        .univers-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.5rem; padding: 8px 0; border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; }
+        .univers-label { font-size: 11px; color: #888; letter-spacing: .08em; text-transform: uppercase; padding-left: 4px; }
+        .univers-btn-admin { font-family: monospace; font-size: 12px; padding: 4px 14px; border: 1px solid #1a1a1a; background: #fafaf8; cursor: pointer; }
+        .univers-btn-admin.active { background: #ff6644; color: #1a1a1a; }
+        .univers-btn-admin:hover { background: #1a1a1a; color: #fafaf8; }
+        .univers-btn-admin.active:hover { background: #ff6644; color: #1a1a1a; }
+        /* badge compteur file d'attente */
+        .pending-badge { display: none; margin-left: 6px; padding: 1px 6px; background: #ff6644; color: #1a1a1a; font-size: 10px; font-weight: bold; border-radius: 8px; }
+        .pending-badge.show { display: inline-block; }
+        .pending-card { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 8px 10px; border: 1px solid #e0e0da; background: #fafaf8; margin-bottom: 6px; align-items: center; }
+        .pending-card.is-image { grid-template-columns: 80px 1fr auto; }
+        .pending-card img { width: 80px; height: 80px; object-fit: cover; border: 1px solid #ddd; }
+        .pending-card .info { font-size: 12px; line-height: 1.5; }
+        .pending-card .info strong { font-size: 13px; }
+        .pending-card .info .meta { font-size: 10px; color: #888; }
+        .pending-card .info .tags { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 3px; }
+        .pending-card .info .tags span { font-size: 10px; background: #b0b035; padding: 1px 6px; }
+        .pending-card .actions { display: flex; flex-direction: column; gap: 4px; }
+        .pending-card .actions button { font-size: 11px; padding: 3px 10px; border: 1px solid #1a1a1a; cursor: pointer; }
+        .pending-card .actions .btn-validate { background: #b0b035; color: #1a1a1a; }
+        .pending-card .actions .btn-validate:hover { background: #1a1a1a; color: #fafaf8; }
+        .pending-card .actions .btn-reject { background: #fafaf8; color: #1a1a1a; }
+        .pending-card .actions .btn-reject:hover { background: #c00; color: #fafaf8; border-color: #c00; }
+        .pending-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin: 1.5rem 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <h1>carnet d'adresses — admin</h1>
+    <input type="password" id="pwd-input" placeholder="••••" onkeydown="if(event.key==='Enter')tryLogin()">
+    <button onclick="tryLogin()">entrer</button>
+    <span id="login-error"></span>
+</div>
+
+<div id="app" style="display:none;">
+    <h1>admin — carnet d'adresses <a href="index.html" style="font-size:11px;color:#aaa;text-decoration:none;margin-left:1rem;">← retour au site</a></h1>
+
+    <!-- sélecteur univers global -->
+    <div class="univers-bar">
+        <span class="univers-label">univers :</span>
+        <button class="univers-btn-admin active" data-univers="visuel" onclick="setAdminUnivers('visuel')">visuel</button>
+        <button class="univers-btn-admin" data-univers="film" onclick="setAdminUnivers('film')">film</button>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('entrees')">entrées</div>
+        <div class="tab" onclick="switchTab('images')">images</div>
+        <div class="tab" onclick="switchTab('tags')">tags</div>
+        <div class="tab" onclick="switchTab('structure')">structure</div>
+        <div class="tab" onclick="switchTab('pending')">à valider <span id="pending-badge" class="pending-badge"></span></div>
+    </div>
+
+    <!-- ENTRÉES -->
+    <div class="tab-content active" id="tab-entrees">
+        <div class="admin-search">
+            <span style="font-size:11px;color:#888;">⌕</span>
+            <input type="text" id="search-entrees" placeholder="filtrer entrées par nom, catégorie, tag…" oninput="filterAdminLists()">
+            <span class="clear" onclick="document.getElementById('search-entrees').value=''; filterAdminLists();">✕</span>
+        </div>
+        <div class="form-block">
+            <div class="form-row">
+                <select id="e-cat">
+                    <option value="">catégorie…</option>
+                    <option value="personnes">personnes</option>
+                    <option value="structure">structure</option>
+                    <option value="mouvements">mouvements</option>
+                    <option value="objet">objet (support)</option>
+                    <option value="impression">impression (support)</option>
+                    <option value="couleur">couleur</option>
+                    <option value="pays">pays</option>
+                    <option value="ville">ville</option>
+                    <option value="date">date</option>
+                </select>
+                <input type="text" id="e-name" placeholder="nom affiché" oninput="updateSlugPreview()">
+            </div>
+            <div class="slug-preview" id="slug-preview">page : —</div>
+            <div class="form-row">
+                <input type="text" id="e-tags" placeholder="tags séparés par virgules">
+                <button onclick="addEntree()">+ ajouter</button>
+                <span id="e-status"></span>
+            </div>
+            <p class="notice">Tags existants :</p>
+            <div class="tag-suggestions" id="e-tag-suggestions"></div>
+        </div>
+        <div id="entree-list" class="list"></div>
+    </div>
+
+    <!-- IMAGES -->
+    <div class="tab-content" id="tab-images">
+        <div class="admin-search">
+            <span style="font-size:11px;color:#888;">⌕</span>
+            <input type="text" id="search-images" placeholder="filtrer images par caption ou tag…" oninput="filterAdminLists()">
+            <span class="clear" onclick="document.getElementById('search-images').value=''; filterAdminLists();">✕</span>
+        </div>
+        <div class="form-block">
+            <p class="notice">Chaque image doit faire <strong>≤ 250 ko</strong> individuellement. Multi-pages : sélectionner plusieurs fichiers.</p>
+
+            <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+                ondragover="event.preventDefault();this.classList.add('drag')"
+                ondragleave="this.classList.remove('drag')"
+                ondrop="handleDrop(event)">
+                cliquer ou glisser des images ici
+                <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)">
+            </div>
+
+            <div class="file-list" id="file-list"></div>
+
+            <div id="multipage-choice" style="display:none; border:1px solid #1a1a1a; padding:.75rem; margin-bottom:8px; background:#f5f5f2;">
+                <p style="margin:0 0 8px;font-size:11px;color:#888;">toi as sélectionné plusieurs images — comment les enregistrer ?</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button id="btn-individual" onclick="setMode('individual')" style="flex:1;">images individuelles</button>
+                    <button id="btn-multipage" onclick="setMode('multipage')" style="flex:1;">édition multi-pages (carrousel)</button>
+                </div>
+                <p id="mode-desc" style="margin:8px 0 0;font-size:11px;color:#888;"></p>
+            </div>
+
+            <!-- point 3 : choix caption commune ou individuelle -->
+            <div class="caption-mode" id="caption-mode-picker">
+                <span style="font-size:11px;color:#888;">caption :</span>
+                <label><input type="radio" name="captionmode" value="shared" checked onchange="setCaptionMode('shared')">une seule pour toutes</label>
+                <label><input type="radio" name="captionmode" value="individual" onchange="setCaptionMode('individual')">une par image</label>
+            </div>
+            <div class="form-row" id="i-caption-shared-row">
+                <input type="text" id="i-caption" placeholder="caption (commune à toutes les images)">
+            </div>
+            <div class="caption-individual-list" id="i-caption-individual-list"></div>
+            <div class="form-row">
+                <input type="text" id="i-tags" placeholder="tags séparés par virgules">
+                <button onclick="uploadAndSave()">↑ uploader & enregistrer</button>
+                <span id="i-status"></span>
+            </div>
+            <div class="upload-progress" id="upload-progress"></div>
+            <p class="notice">Tags existants :</p>
+            <div class="tag-suggestions" id="i-tag-suggestions"></div>
+        </div>
+        <div id="image-list" class="list"></div>
+    </div>
+
+    <!-- STRUCTURE -->
+    <div class="tab-content" id="tab-structure">
+        <div class="form-block">
+            <p class="notice">Gérer les sections du site. Les modifications sont immédiates sur le site.</p>
+            <h2>ajouter une section</h2>
+            <div class="form-row">
+                <input type="text" id="s-h2" placeholder="titre h2 (ex: mouvements)">
+                <select id="s-grid">
+                    <option value="grid1">grid1 — 1 colonne</option>
+                    <option value="grid2">grid2 — 2 colonnes</option>
+                    <option value="grid3">grid3 — 3 colonnes (2:3:3)</option>
+                    <option value="grid3a">grid3a — 3 colonnes (2:1:1)</option>
+                    <option value="grid3b">grid3b — 3 colonnes (3:3:2)</option>
+                    <option value="grid4">grid4 — 4 colonnes</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <input type="text" id="s-colonnes" placeholder="colonnes: header1:cat1, header2:cat2 (ex: personnes:personnes, structures:structure)">
+                <button onclick="addSection()">+ ajouter</button>
+                <span id="s-status"></span>
+            </div>
+            <p class="notice">Format colonnes : <code>header:categorie</code> séparés par virgule. Pour grid1 sans header : laisser vide le header (ex: <code>:images</code>)</p>
+        </div>
+        <div id="section-list" class="list"></div>
+    </div>
+
+    <!-- TAGS -->
+    <div class="tab-content" id="tab-tags">
+        <div class="form-block">
+            <p class="notice">Cliquer ✕ pour supprimer un tag de <strong>toutes</strong> les entrées et images qui le contiennent.</p>
+            <div id="all-tags-list" style="display:flex;flex-wrap:wrap;gap:0;"></div>
+        </div>
+    </div>
+</div>
+
+
+    <!-- À VALIDER -->
+    <div class="tab-content" id="tab-pending">
+        <p class="notice" style="font-size:11px;color:#888;">contributions en attente de validation. cliquer "valider" pour les publier, "rejeter" pour les supprimer.</p>
+        <div class="pending-section-title">entrées en attente</div>
+        <div id="pending-entrees-list"></div>
+        <div class="pending-section-title">images en attente</div>
+        <div id="pending-images-list"></div>
+    </div>
+<script>
+const CFG = {
+    url: 'https://nyzfqwwdkeqinnxduyqs.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55emZxd3dka2VxaW5ueGR1eXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjQ5MTUsImV4cCI6MjA5MjM0MDkxNX0.nJ4HnkY34lhHPyWU6kCYoKFzdbi5ZTO398hQ0c9wiVQ',
+    pwdHash: '192b69d3e9d9e04f07856bc4dd687f0dc6f539d0b66931b425b0b5c378fb6d57',
+};
+const SUPABASE_URL = CFG.url;
+const H = { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': 'application/json' };
+const MAX_SIZE = 250 * 1024; // 250ko
+
+// --- login ---
+async function hashPwd(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function tryLogin() {
+    const val = document.getElementById('pwd-input').value;
+    const h = await hashPwd(val);
+    if (h !== CFG.pwdHash) {
+        document.getElementById('login-error').textContent = 'mot de passe incorrect';
+        document.getElementById('pwd-input').value = '';
+        return;
+    }
+    // vérifier TOTP si activé
+    if (TOTP_SECRET_B32) {
+        const totpInput = document.getElementById('totp-input');
+        if (!totpInput) {
+            // afficher champ TOTP
+            const screen = document.getElementById('login-screen');
+            const inp = document.createElement('input');
+            inp.id = 'totp-input';
+            inp.type = 'text';
+            inp.placeholder = 'code authenticator (6 chiffres)';
+            inp.maxLength = 6;
+            inp.style.letterSpacing = '.3em';
+            inp.onkeydown = e => { if (e.key === 'Enter') tryLogin(); };
+            screen.insertBefore(inp, screen.querySelector('button'));
+            document.getElementById('login-error').textContent = 'mot de passe ok — entrer le code authenticator';
+            inp.focus();
+            return;
+        }
+        const entered = totpInput.value.trim();
+        const expected = await getTOTP();
+        // tolérance ±1 période (30s avant/après)
+        const prev = await getTOTPAt(Math.floor(Date.now()/1000/30) - 1);
+        if (entered !== expected && entered !== prev) {
+            document.getElementById('login-error').textContent = 'code authenticator incorrect';
+            totpInput.value = '';
+            return;
+        }
+    }
+    sessionStorage.setItem('carnet_auth', h);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
+    updateCategorySelector();
+    fetchAll();
+}
+
+async function getTOTPAt(counter) {
+    const key = await crypto.subtle.importKey('raw', base32Decode(TOTP_SECRET_B32), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const buf = new ArrayBuffer(8);
+    new DataView(buf).setUint32(4, counter, false);
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, buf));
+    const offset = sig[19] & 0xf;
+    const code = ((sig[offset] & 0x7f) << 24 | sig[offset+1] << 16 | sig[offset+2] << 8 | sig[offset+3]) % 1000000;
+    return String(code).padStart(6, '0');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('carnet_auth') === CFG.pwdHash) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
+        updateCategorySelector();
+        fetchAll();
+    }
+});
+
+// --- fichiers sélectionnés ---
+let selectedFiles = [];
+let uploadMode = 'individual'; // 'individual' | 'multipage'
+
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('drag');
+    handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+    selectedFiles = [...files];
+    uploadMode = 'individual';
+    renderFileList();
+    // afficher boite choix si plusieurs fichiers
+    const box = document.getElementById('multipage-choice');
+    box.style.display = selectedFiles.length > 1 ? 'block' : 'none';
+    document.getElementById('btn-individual').classList.remove('active');
+    document.getElementById('btn-multipage').classList.remove('active');
+    document.getElementById('mode-desc').textContent = '';
+    if (selectedFiles.length > 1) setMode('individual');
+}
+
+function setMode(mode) {
+    uploadMode = mode;
+    document.getElementById('btn-individual').style.background = mode === 'individual' ? '#1a1a1a' : '';
+    document.getElementById('btn-individual').style.color = mode === 'individual' ? '#fafaf8' : '';
+    document.getElementById('btn-multipage').style.background = mode === 'multipage' ? '#1a1a1a' : '';
+    document.getElementById('btn-multipage').style.color = mode === 'multipage' ? '#fafaf8' : '';
+    document.getElementById('mode-desc').textContent = mode === 'individual'
+        ? `${selectedFiles.length} images séparées`
+        : `1 objet multi-pages — navigation avec flèches (zine, livre…)`;
+    const picker = document.getElementById('caption-mode-picker');
+    if (picker) picker.classList.toggle('show', mode === 'individual' && selectedFiles.length > 1);
+    if (mode === 'multipage') setCaptionMode('shared');
+}
+
+let captionMode = 'shared';
+function setCaptionMode(m) {
+    captionMode = m;
+    document.getElementById('i-caption-shared-row').style.display = m === 'shared' ? '' : 'none';
+    const list = document.getElementById('i-caption-individual-list');
+    list.classList.toggle('show', m === 'individual');
+    if (m === 'individual') renderIndividualCaptions();
+    document.querySelectorAll('input[name=captionmode]').forEach(r => r.checked = (r.value === m));
+}
+
+function renderIndividualCaptions() {
+    const list = document.getElementById('i-caption-individual-list');
+    list.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const im = document.createElement('img');
+        im.src = URL.createObjectURL(f);
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = `cap-individual-${i}`;
+        inp.placeholder = `caption pour ${f.name}…`;
+        row.append(im, inp);
+        list.appendChild(row);
+    });
+}
+
+function renderFileList() {
+    const list = document.getElementById('file-list');
+    list.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+        const ok = f.size <= MAX_SIZE;
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        const url = URL.createObjectURL(f);
+        div.innerHTML = `
+            <img class="file-thumb" src="${url}">
+            <span class="fname">${f.name}</span>
+            <span class="fsize">${(f.size/1024).toFixed(0)} ko</span>
+            <span class="${ok ? 'fok' : 'ferr'}">${ok ? '✓' : '✗ > 250ko'}</span>
+            <button class="del" onclick="removeFile(${i})">✕</button>`;
+        list.appendChild(div);
+    });
+}
+
+function removeFile(i) {
+    selectedFiles.splice(i, 1);
+    renderFileList();
+    if (selectedFiles.length <= 1) {
+        document.getElementById('multipage-choice').style.display = 'none';
+    } else {
+        setMode(uploadMode);
+    }
+}
+
+// --- upload vers Supabase Storage ---
+async function uploadFile(file) {
+    const path = `img/${Date.now()}_${file.name.replace(/[^a-z0-9.\-_]/gi,'_')}`;
+    const r = await fetch(`${CFG.url}/storage/v1/object/images/${path}`, {
+        method: 'POST',
+        headers: { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': file.type },
+        body: file
+    });
+    if (!r.ok) throw new Error('upload échoué : ' + file.name);
+    return `${CFG.url}/storage/v1/object/public/images/${path}`;
+}
+
+async function uploadAndSave() {
+    const sharedCaption = document.getElementById('i-caption').value.trim();
+    const captions = (captionMode === 'individual')
+        ? selectedFiles.map((_, i) => document.getElementById(`cap-individual-${i}`)?.value.trim() || '')
+        : null;
+    const caption = sharedCaption;
+    const tagsRaw = document.getElementById('i-tags').value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const progress = document.getElementById('upload-progress');
+
+    if (!selectedFiles.length) { setStatus('i-status', false, '⚠ aucun fichier'); return; }
+
+    // vérifier taille individuelle
+    const tooLarge = selectedFiles.filter(f => f.size > MAX_SIZE);
+    if (tooLarge.length) {
+        setStatus('i-status', false, `✗ ${tooLarge.length} image(s) > 250ko`);
+        return;
+    }
+
+    progress.textContent = 'upload en cours…';
+    setStatus('i-status', false, '');
+
+    try {
+        const urls = [];
+        for (let i = 0; i < selectedFiles.length; i++) {
+            progress.textContent = `upload ${i+1} / ${selectedFiles.length}…`;
+            const url = await uploadFile(selectedFiles[i]);
+            urls.push(url);
+        }
+
+        if (uploadMode === 'multipage') {
+            // un seul objet avec pages[]
+            const body = { pages: urls, caption, tags, univers: currentUnivers };
+            const r = await fetch(`${CFG.url}/rest/v1/images`, {
+                method: 'POST',
+                headers: { ...H, Prefer: 'return=representation' },
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) { setStatus('i-status', false, '✗ erreur base de données'); return; }
+            const inserted = await r.json();
+            images.unshift(...inserted);
+        } else {
+            // images individuelles — une entrée par image (caption commune ou individuelle)
+            for (let i = 0; i < urls.length; i++) {
+                const cap = (captionMode === 'individual') ? (captions[i] || '') : caption;
+                const body = { src: urls[i], caption: cap, tags, univers: currentUnivers };
+                const r = await fetch(`${CFG.url}/rest/v1/images`, {
+                    method: 'POST',
+                    headers: { ...H, Prefer: 'return=representation' },
+                    body: JSON.stringify(body)
+                });
+                if (!r.ok) { setStatus('i-status', false, '✗ erreur base de données'); return; }
+                const inserted = await r.json();
+                images.unshift(...inserted);
+            }
+        }
+
+        setStatus('i-status', true, '✓ enregistré');
+        selectedFiles = [];
+        document.getElementById('file-list').innerHTML = '';
+        document.getElementById('multipage-choice').style.display = 'none';
+        document.getElementById('i-caption').value = '';
+        setCaptionMode('shared');
+        document.getElementById('caption-mode-picker').classList.remove('show');
+        document.getElementById('i-tags').value = '';
+        fetchAll();
+    } catch(err) {
+        setStatus('i-status', false, '✗ ' + err.message);
+    }
+    progress.textContent = '';
+}
+
+// --- data ---
+let entrees = [], images = [];
+
+async function fetchAll() {
+    const [re, ri] = await Promise.all([
+        fetch(`${CFG.url}/rest/v1/entrees?univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: H }).then(r=>r.json()),
+        fetch(`${CFG.url}/rest/v1/images?univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: H }).then(r=>r.json()),
+    ]);
+    entrees = re; images = ri;
+    renderEntrees(); renderImgList(); renderTagSuggestions();
+    refreshPendingBadge();
+}
+
+let currentUnivers = sessionStorage.getItem('admin_univers') || 'visuel';
+
+function setAdminUnivers(u) {
+    currentUnivers = u;
+    sessionStorage.setItem('admin_univers', u);
+    document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === u));
+    fetchAll();
+    if (typeof fetchSections === 'function') fetchSections();
+    updateCategorySelector();
+}
+
+// adapter le select e-cat selon univers
+function updateCategorySelector() {
+    const sel = document.getElementById('e-cat');
+    if (!sel) return;
+    const visuelOpts = [
+        ['', 'catégorie…'],
+        ['personnes','personnes'],['structure','structure'],['mouvements','mouvements'],
+        ['objet','objet (support)'],['impression','impression (support)'],
+        ['couleur','couleur'],['pays','pays'],['ville','ville'],['date','date']
+    ];
+    const filmOpts = [
+        ['', 'catégorie…'],
+        ['film','film'],
+        ['realisateur','réalisateur'],['acteur','acteur'],
+        ['date','date'],['genre','genre'],['pays','pays']
+    ];
+    const opts = (currentUnivers === 'film') ? filmOpts : visuelOpts;
+    sel.innerHTML = '';
+    opts.forEach(([v, l]) => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = l;
+        sel.appendChild(o);
+    });
+}
+
+function getAllTags() {
+    const s = new Set();
+    [...entrees,...images].forEach(i => i.tags?.forEach(t => s.add(t)));
+    return [...s].sort();
+}
+
+function renderTagSuggestions() {
+    [['e-tag-suggestions','e-tags'],['i-tag-suggestions','i-tags']].forEach(([cid,iid]) => {
+        const c = document.getElementById(cid);
+        const inp = document.getElementById(iid);
+        c.innerHTML = '';
+        const pillByTag = {};
+        getAllTags().forEach(t => {
+            const s = document.createElement('span');
+            s.className = 'tag-pill'; s.textContent = t;
+            s.dataset.tag = t.toLowerCase();
+            s.onclick = () => {
+                const cur = inp.value.trim();
+                inp.value = cur ? cur + ', ' + t : t;
+                highlightAddedTags(cid, iid);
+            };
+            pillByTag[t.toLowerCase()] = s;
+            c.appendChild(s);
+        });
+        // écouter input pour highlight live
+        if (!inp.dataset.highlightInit) {
+            inp.addEventListener('input', () => highlightAddedTags(cid, iid));
+            inp.dataset.highlightInit = '1';
+        }
+        highlightAddedTags(cid, iid);
+    });
+}
+
+function highlightAddedTags(suggestionsId, inputId) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    const added = inp.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    document.querySelectorAll('#' + suggestionsId + ' .tag-pill').forEach(pill => {
+        pill.classList.toggle('tag-added', added.includes(pill.dataset.tag));
+    });
+}
+
+function setStatus(id, ok, msg) {
+    const el = document.getElementById(id);
+    el.className = 'status '+(ok?'ok':'err'); el.textContent = msg;
+    if (msg) setTimeout(()=>el.textContent='',3000);
+}
+
+function toSlug(name) {
+    return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+
+function updateSlugPreview() {
+    const name = document.getElementById('e-name').value.trim();
+    const slug = name ? toSlug(name) : null;
+    document.getElementById('slug-preview').innerHTML = slug
+        ? `page : <a href="page.html?slug=${slug}" target="_blank">page.html?slug=${slug}</a>`
+        : 'page : —';
+}
+
+async function addEntree() {
+    const cat = document.getElementById('e-cat').value;
+    const name = document.getElementById('e-name').value.trim();
+    const tagsRaw = document.getElementById('e-tags').value.trim();
+    if (!cat||!name) { setStatus('e-status',false,'⚠ champs manquants'); return; }
+    const slug = toSlug(name);
+    const href = `page.html?slug=${slug}`;
+    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const r = await fetch(`${CFG.url}/rest/v1/entrees`, {
+        method:'POST', headers:{...H,Prefer:'return=representation'},
+        body: JSON.stringify({ categorie:cat, name, href, slug, tags, contenu:'', univers: currentUnivers })
+    });
+    if (r.ok) {
+        setStatus('e-status',true,'✓ ajouté');
+        document.getElementById('e-name').value='';
+        document.getElementById('e-tags').value='';
+        document.getElementById('slug-preview').innerHTML='page : —';
+        fetchAll();
+    } else {
+        const err = await r.json().catch(()=>({}));
+        setStatus('e-status',false, err.code==='23505' ? '⚠ déjà existant' : '✗ erreur');
+    }
+}
+
+async function deleteEntree(id) {
+    if (!confirm('Supprimer ?')) return;
+    await fetch(`${CFG.url}/rest/v1/entrees?id=eq.${id}`,{method:'DELETE',headers:H});
+    fetchAll();
+}
+
+function renderEntrees() {
+    const list = document.getElementById('entree-list');
+    list.innerHTML = '';
+    const cats = (currentUnivers === 'film')
+        ? ['film','realisateur','acteur','date','genre','pays']
+        : ['structure','personnes','mouvements','objet','impression','couleur','pays','ville','date'];
+    // ajouter aussi les catégories trouvées dans entrees mais pas dans la liste (sécurité)
+    entrees.forEach(e => { if (e.categorie && !cats.includes(e.categorie)) cats.push(e.categorie); });
+    cats.forEach(cat => {
+        const items = entrees.filter(e=>e.categorie===cat);
+        if (!items.length) return;
+        const label = document.createElement('div');
+        label.className='cat-label'; label.textContent=cat;
+        list.appendChild(label);
+        items.forEach(item => {
+            const wrap = document.createElement('div');
+            const row = document.createElement('div');
+            row.className='list-item';
+            row.dataset.search = ((item.name||'') + ' ' + cat + ' ' + (item.tags||[]).join(' ')).toLowerCase();
+            const nameSpan = document.createElement('span'); nameSpan.className = 'item-name'; nameSpan.textContent = item.name || '';
+            const linkA = document.createElement('a'); linkA.href = item.href || '#'; linkA.target = '_blank'; linkA.className = 'item-sub'; linkA.textContent = item.href || '';
+            const spacer = document.createElement('span'); spacer.className = 'item-spacer';
+            const tagsSpan = document.createElement('span'); tagsSpan.className = 'item-tags'; tagsSpan.id = `badges-e-${item.id}`;
+            (item.tags || []).forEach(t => { const b = document.createElement('span'); b.className = 'tag-badge'; b.textContent = t; tagsSpan.appendChild(b); });
+            const editBtn = document.createElement('button'); editBtn.className = 'item-edit-btn'; editBtn.textContent = '✎';
+            editBtn.onclick = () => toggleEditRow(`erow-${item.id}`);
+            const delBtn = document.createElement('button'); delBtn.className = 'del'; delBtn.textContent = '✕';
+            delBtn.onclick = () => deleteEntree(item.id);
+            row.append(nameSpan, linkA, spacer, tagsSpan, editBtn, delBtn);
+            const editRow = document.createElement('div');
+            editRow.className='edit-row'; editRow.id=`erow-${item.id}`;
+            // bloc nom + slug preview
+            const r1 = document.createElement('div'); r1.className = 'edit-row-actions'; r1.style.marginBottom = '4px';
+            const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.id = `ename-input-${item.id}`; nameInput.value = item.name || ''; nameInput.placeholder = 'titre'; nameInput.style.flex = '1';
+            const slugLabel = document.createElement('span'); slugLabel.style.cssText = 'font-size:10px;color:#888;'; slugLabel.textContent = 'slug: ';
+            const slugPrev = document.createElement('span'); slugPrev.id = `eslug-preview-${item.id}`; slugPrev.style.cssText = 'font-size:10px;color:#666;font-family:monospace;'; slugPrev.textContent = item.slug || '';
+            r1.append(nameInput, slugLabel, slugPrev);
+            // tag list container
+            const tagListDiv = document.createElement('div'); tagListDiv.className = 'edit-tag-list'; tagListDiv.id = `etags-${item.id}`;
+            // actions tags + save
+            const r2 = document.createElement('div'); r2.className = 'edit-row-actions';
+            const tagInput = document.createElement('input'); tagInput.type = 'text'; tagInput.id = `etag-input-${item.id}`; tagInput.placeholder = 'nouveau tag…'; tagInput.style.cssText = 'width:130px;flex:none;';
+            const addTagBtn = document.createElement('button'); addTagBtn.className = 'inline-save'; addTagBtn.textContent = '+ tag'; addTagBtn.onclick = () => addTagToEntry(item.id);
+            const saveBtn = document.createElement('button'); saveBtn.className = 'inline-save'; saveBtn.textContent = 'enregistrer'; saveBtn.onclick = () => saveEntreeEdit(item.id);
+            const status = document.createElement('span'); status.id = `estatus-${item.id}`; status.style.cssText = 'font-size:11px;color:#888;';
+            r2.append(tagInput, addTagBtn, saveBtn, status);
+            editRow.append(r1, tagListDiv, r2);
+            wrap.appendChild(row); wrap.appendChild(editRow);
+            list.appendChild(wrap);
+            renderEntreeTagsEdit(item);
+            // live update du slug preview (variable déjà créée plus haut, ré-attacher listener)
+            nameInput.addEventListener('input', () => {
+                slugPrev.textContent = nameInput.value.trim() ? toSlug(nameInput.value) : '';
+            });
+        });
+    });
+}
+
+function toggleEditRow(id) { document.getElementById(id)?.classList.toggle('open'); }
+
+function renderEntreeTagsEdit(item) {
+    const c = document.getElementById(`etags-${item.id}`);
+    if (!c) return;
+    c.innerHTML='';
+    (item.tags||[]).forEach(t => {
+        const s = document.createElement('span');
+        s.className='edit-tag';
+        const safeT = t.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        s.textContent = t;
+        const rm = document.createElement('span'); rm.className = 'rm'; rm.textContent = '✕';
+        rm.onclick = () => removeTagFromEntry(item.id, t);
+        s.appendChild(rm);
+        c.appendChild(s);
+    });
+}
+
+function removeTagFromEntry(id, tag) {
+    const item = entrees.find(e=>e.id===id);
+    if (!item) return;
+    item.tags = (item.tags||[]).filter(t=>t!==tag);
+    renderEntreeTagsEdit(item);
+    document.getElementById(`badges-e-${id}`).innerHTML = item.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+}
+
+function addTagToEntry(id) {
+    const inp = document.getElementById(`etag-input-${id}`);
+    const val = inp.value.trim();
+    if (!val) return;
+    const item = entrees.find(e=>e.id===id);
+    if (!item || (item.tags||[]).includes(val)) return;
+    if (!item.tags) item.tags=[];
+    item.tags.push(val);
+    renderEntreeTagsEdit(item);
+    document.getElementById(`badges-e-${id}`).innerHTML = item.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    inp.value='';
+}
+
+async function saveEntreeEdit(id) {
+    const item = entrees.find(e=>e.id===id);
+    if (!item) return;
+    const newName = document.getElementById(`ename-input-${id}`)?.value.trim() || item.name;
+    const newSlug = toSlug(newName);
+    const newHref = `page.html?slug=${newSlug}`;
+    const r = await fetch(`${CFG.url}/rest/v1/entrees?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: H,
+        body: JSON.stringify({ tags: item.tags, name: newName, slug: newSlug, href: newHref })
+    });
+    const s = document.getElementById(`estatus-${id}`);
+    if (r.ok) {
+        s.textContent = '✓';
+    } else {
+        const err = await r.json().catch(()=>({}));
+        s.textContent = err.code === '23505' ? '⚠ slug existe déjà' : '✗ erreur';
+    }
+    setTimeout(()=>{ s.textContent=''; if(r.ok) fetchAll(); }, 1800);
+}
+
+// alias rétrocompatible
+const saveEntreeTags = saveEntreeEdit;
+
+
+async function deleteImage(id) {
+    if (!confirm('Supprimer ?')) return;
+    await fetch(`${CFG.url}/rest/v1/images?id=eq.${id}`,{method:'DELETE',headers:H});
+    fetchAll();
+}
+
+function renderImgList() {
+    const list = document.getElementById('image-list');
+    list.innerHTML='';
+    list.className = 'img-admin-grid';
+    images.forEach(img => {
+        const src = img.src || (img.pages && img.pages[0]) || '';
+        const card = document.createElement('div');
+        card.className = 'img-admin-card';
+        card.dataset.search = ((img.caption||'') + ' ' + (img.tags||[]).join(' ')).toLowerCase();
+
+        if (src) {
+            const im = document.createElement('img');
+            im.src = src; im.loading = 'lazy';
+            im.onerror = () => { im.style.display = 'none'; };
+            card.appendChild(im);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const cap = document.createElement('div');
+        cap.id = `cap-${img.id}`;
+        const capStrong = document.createElement('strong');
+        capStrong.textContent = img.caption || '—';
+        cap.appendChild(capStrong);
+        meta.appendChild(cap);
+
+        if (img.pages) {
+            const p = document.createElement('div');
+            p.textContent = `multi-pages (${img.pages.length})`;
+            meta.appendChild(p);
+        }
+
+        const badges = document.createElement('div');
+        badges.id = `badges-i-${img.id}`;
+        badges.style.display = 'flex'; badges.style.flexWrap = 'wrap'; badges.style.gap = '3px'; badges.style.marginTop = '4px';
+        (img.tags || []).forEach(t => {
+            const b = document.createElement('span');
+            b.className = 'tag-badge';
+            b.textContent = t;
+            badges.appendChild(b);
+        });
+        meta.appendChild(badges);
+        card.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'item-edit-btn';
+        editBtn.textContent = '✎ éditer';
+        editBtn.onclick = () => toggleEditRow(`irow-${img.id}`);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del';
+        delBtn.textContent = '✕';
+        delBtn.onclick = () => deleteImage(img.id);
+        actions.append(editBtn, delBtn);
+        card.appendChild(actions);
+
+        const editRow = document.createElement('div');
+        editRow.className = 'edit-row'; editRow.id = `irow-${img.id}`;
+        const ir1 = document.createElement('div'); ir1.className = 'edit-row-actions'; ir1.style.marginBottom = '4px';
+        const capInput = document.createElement('input'); capInput.type = 'text'; capInput.id = `icap-input-${img.id}`; capInput.value = img.caption || ''; capInput.placeholder = 'caption…'; capInput.style.flex = '1';
+        ir1.appendChild(capInput);
+        const itagList = document.createElement('div'); itagList.className = 'edit-tag-list'; itagList.id = `itags-${img.id}`;
+        const ir2 = document.createElement('div'); ir2.className = 'edit-row-actions';
+        const itagInput = document.createElement('input'); itagInput.type = 'text'; itagInput.id = `itag-input-${img.id}`; itagInput.placeholder = 'nouveau tag…'; itagInput.style.cssText = 'width:130px;flex:none;';
+        const iaddBtn = document.createElement('button'); iaddBtn.className = 'inline-save'; iaddBtn.textContent = '+ tag'; iaddBtn.onclick = () => addTagToImage(img.id);
+        const isaveBtn = document.createElement('button'); isaveBtn.className = 'inline-save'; isaveBtn.textContent = 'enregistrer'; isaveBtn.onclick = () => saveImageEdit(img.id);
+        const istatus = document.createElement('span'); istatus.id = `istatus-${img.id}`; istatus.style.cssText = 'font-size:11px;color:#888;';
+        ir2.append(itagInput, iaddBtn, isaveBtn, istatus);
+        editRow.append(ir1, itagList, ir2);
+        card.appendChild(editRow);
+        list.appendChild(card);
+        renderImageTagsEdit(img);
+    });
+}
+
+// === filtre admin (entrées + images) ===
+function filterAdminLists() {
+    const qE = (document.getElementById('search-entrees')?.value || '').toLowerCase().trim();
+    const qI = (document.getElementById('search-images')?.value || '').toLowerCase().trim();
+
+    // entrées : filtrer chaque .list-item (on annote dataset.search au render)
+    document.querySelectorAll('#entree-list .list-item').forEach(row => {
+        const txt = (row.dataset.search || row.textContent).toLowerCase();
+        row.style.display = (!qE || txt.includes(qE)) ? '' : 'none';
+    });
+
+    // catégories vides à cacher si tous leurs items sont cachés
+    document.querySelectorAll('#entree-list .cat-label').forEach(label => {
+        let next = label.nextElementSibling;
+        let visible = false;
+        while (next && !next.classList.contains('cat-label')) {
+            if (next.style.display !== 'none') { visible = true; break; }
+            next = next.nextElementSibling;
+        }
+        label.style.display = visible ? '' : 'none';
+    });
+
+    // images
+    document.querySelectorAll('.img-admin-card').forEach(card => {
+        const txt = card.dataset.search || '';
+        card.style.display = (!qI || txt.includes(qI)) ? '' : 'none';
+    });
+}
+
+function renderImageTagsEdit(img) {
+    const c = document.getElementById(`itags-${img.id}`);
+    if (!c) return;
+    c.innerHTML='';
+    (img.tags||[]).forEach(t => {
+        const s = document.createElement('span');
+        s.className='edit-tag';
+        const safeT = t.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        s.textContent = t;
+        const rm = document.createElement('span'); rm.className = 'rm'; rm.textContent = '✕';
+        rm.onclick = () => removeTagFromImage(img.id, t);
+        s.appendChild(rm);
+        c.appendChild(s);
+    });
+}
+
+function removeTagFromImage(id, tag) {
+    const img = images.find(i=>i.id===id);
+    if (!img) return;
+    img.tags = (img.tags||[]).filter(t=>t!==tag);
+    renderImageTagsEdit(img);
+    document.getElementById(`badges-i-${id}`).innerHTML = img.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+}
+
+function addTagToImage(id) {
+    const inp = document.getElementById(`itag-input-${id}`);
+    const val = inp.value.trim();
+    if (!val) return;
+    const img = images.find(i=>i.id===id);
+    if (!img || (img.tags||[]).includes(val)) return;
+    if (!img.tags) img.tags=[];
+    img.tags.push(val);
+    renderImageTagsEdit(img);
+    document.getElementById(`badges-i-${id}`).innerHTML = img.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    inp.value='';
+}
+
+async function saveImageEdit(id) {
+    const img = images.find(i=>i.id===id);
+    if (!img) return;
+    const caption = document.getElementById(`icap-input-${id}`).value.trim();
+    img.caption = caption;
+    document.getElementById(`cap-${id}`).textContent = caption||'—';
+    const r = await fetch(`${CFG.url}/rest/v1/images?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify({tags:img.tags,caption})});
+    const s = document.getElementById(`istatus-${id}`);
+    s.textContent = r.ok ? '✓' : '✗';
+    setTimeout(()=>{ s.textContent=''; if(r.ok) fetchAll(); },1500);
+}
+
+
+function switchTab(id) {
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['entrees','images','tags','structure','pending'][i]===id));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById('tab-'+id).classList.add('active');
+    if (id === 'tags') renderAllTags();
+    if (id === 'structure') fetchSections();
+    if (id === 'pending') fetchPending();
+}
+
+// ===== SECTIONS =====
+let sections = [];
+
+async function fetchSections() {
+    const r = await fetch(`${CFG.url}/rest/v1/sections?univers=eq.${currentUnivers}&order=position.asc`, { headers: H });
+    sections = await r.json();
+    renderSectionList();
+}
+
+function renderSectionList() {
+    const list = document.getElementById('section-list');
+    list.innerHTML = '';
+    sections.forEach((sec, i) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const cols = (sec.colonnes || []).map(c => `${c.header||'—'}:${c.categorie}`).join(', ');
+        
+        const name = document.createElement('span');
+        name.className = 'item-name';
+        name.textContent = sec.h2; // textContent → XSS safe
+
+        const grid = document.createElement('span');
+        grid.className = 'item-sub';
+        grid.textContent = sec.grid;
+
+        const colsSpan = document.createElement('span');
+        colsSpan.className = 'item-sub';
+        colsSpan.textContent = cols;
+
+        const spacer = document.createElement('span');
+        spacer.className = 'item-spacer';
+
+        const upBtn = document.createElement('button');
+        upBtn.className = 'item-edit-btn';
+        upBtn.textContent = '↑';
+        upBtn.onclick = () => moveSection(sec.id, -1);
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'item-edit-btn';
+        downBtn.textContent = '↓';
+        downBtn.onclick = () => moveSection(sec.id, 1);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del';
+        delBtn.textContent = '✕';
+        delBtn.onclick = () => deleteSection(sec.id);
+
+        div.append(name, grid, colsSpan, spacer, upBtn, downBtn, delBtn);
+        list.appendChild(div);
+    });
+}
+
+async function addSection() {
+    const h2 = document.getElementById('s-h2').value.trim();
+    const grid = document.getElementById('s-grid').value;
+    const colsRaw = document.getElementById('s-colonnes').value.trim();
+    if (!h2) { setStatus('s-status', false, '⚠ titre requis'); return; }
+
+    const colonnes = colsRaw
+        ? colsRaw.split(',').map(s => {
+            const [header, categorie] = s.trim().split(':');
+            const slug = categorie?.trim().toLowerCase().replace(/\s+/g,'-') || '';
+            return { header: header?.trim() || null, col_id: 'col-'+slug, categorie: slug };
+          })
+        : [];
+
+    const maxPos = sections.length ? Math.max(...sections.map(s=>s.position)) : 0;
+    const r = await fetch(`${CFG.url}/rest/v1/sections`, {
+        method: 'POST',
+        headers: { ...H, Prefer: 'return=representation' },
+        body: JSON.stringify({ h2, grid, colonnes, position: maxPos + 1, univers: currentUnivers })
+    });
+    if (r.ok) {
+        setStatus('s-status', true, '✓ ajouté');
+        document.getElementById('s-h2').value = '';
+        document.getElementById('s-colonnes').value = '';
+        fetchSections();
+    } else { setStatus('s-status', false, '✗ erreur'); }
+}
+
+async function deleteSection(id) {
+    if (!confirm('Supprimer cette section ?')) return;
+    await fetch(`${CFG.url}/rest/v1/sections?id=eq.${id}`, { method: 'DELETE', headers: H });
+    fetchSections();
+}
+
+async function moveSection(id, dir) {
+    const idx = sections.findIndex(s => s.id === id);
+    const target = sections[idx + dir];
+    if (!target) return;
+    // échanger les positions
+    await Promise.all([
+        fetch(`${CFG.url}/rest/v1/sections?id=eq.${id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ position: target.position }) }),
+        fetch(`${CFG.url}/rest/v1/sections?id=eq.${target.id}`, { method: 'PATCH', headers: H, body: JSON.stringify({ position: sections[idx].position }) }),
+    ]);
+    fetchSections();
+}
+
+// ===== TOTP =====
+// Implémentation RFC 6238 — TOTP avec Web Crypto API
+// Secret base32 — générer sur https://totp.danhersam.com/ ou via QR code ci-dessous
+// CHANGER ce secret et configurer Google Authenticator avec le QR code généré
+const TOTP_SECRET_B32 = 'JBSWY3DPEHPK3PXP'; // ← laisser vide pour désactiver TOTP, ou coller ton secret base32 après configuration Google Authenticator
+
+function base32Decode(s) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = 0, value = 0;
+    const output = [];
+    for (const char of s.toUpperCase().replace(/=+$/, '')) {
+        value = (value << 5) | alphabet.indexOf(char);
+        bits += 5;
+        if (bits >= 8) { output.push((value >>> (bits - 8)) & 255); bits -= 8; }
+    }
+    return new Uint8Array(output);
+}
+
+async function getTOTP(secret = TOTP_SECRET_B32) {
+    const key = await crypto.subtle.importKey('raw', base32Decode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const counter = Math.floor(Date.now() / 1000 / 30);
+    const buf = new ArrayBuffer(8);
+    new DataView(buf).setUint32(4, counter, false);
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, buf));
+    const offset = sig[19] & 0xf;
+    const code = ((sig[offset] & 0x7f) << 24 | sig[offset+1] << 16 | sig[offset+2] << 8 | sig[offset+3]) % 1000000;
+    return String(code).padStart(6, '0');
+}
+
+function renderAllTags() {
+    const container = document.getElementById('all-tags-list');
+    container.innerHTML = '';
+    const tags = getAllTags();
+    if (!tags.length) { container.innerHTML = '<span style="font-size:11px;color:#ccc;padding:.5rem;">aucun tag</span>'; return; }
+    tags.forEach(t => {
+        const span = document.createElement('span');
+        span.style.cssText = 'display:inline-flex;align-items:center;gap:0;border-right:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;font-size:12px;';
+        const label = document.createElement('span'); label.style.padding = '5px 10px'; label.textContent = t;
+        const renameBtn = document.createElement('span'); renameBtn.style.cssText = 'cursor:pointer;color:#888;font-size:11px;padding:5px 6px;border-left:1px solid #e0e0da;'; renameBtn.title = 'renommer'; renameBtn.textContent = '✎';
+        renameBtn.onclick = () => renameTag(t);
+        const delTagBtn = document.createElement('span'); delTagBtn.style.cssText = 'cursor:pointer;color:#c00;font-size:11px;padding:5px 6px;border-left:1px solid #e0e0da;'; delTagBtn.title = 'supprimer partout'; delTagBtn.textContent = '✕';
+        delTagBtn.onclick = () => deleteTag(t);
+        span.append(label, renameBtn, delTagBtn);
+        container.appendChild(span);
+    });
+}
+
+async function renameTag(oldTag) {
+    const newTag = prompt(`Renommer "${oldTag}" en :`, oldTag);
+    if (!newTag || newTag === oldTag) return;
+    const affectedEntrees = entrees.filter(e => e.tags?.includes(oldTag));
+    const affectedImages = images.filter(i => i.tags?.includes(oldTag));
+    await Promise.all([
+        ...affectedEntrees.map(e => fetch(`${CFG.url}/rest/v1/entrees?id=eq.${e.id}`,{
+            method:'PATCH',headers:H,
+            body:JSON.stringify({tags:e.tags.map(t=>t===oldTag?newTag:t)})
+        })),
+        ...affectedImages.map(i => fetch(`${CFG.url}/rest/v1/images?id=eq.${i.id}`,{
+            method:'PATCH',headers:H,
+            body:JSON.stringify({tags:i.tags.map(t=>t===oldTag?newTag:t)})
+        }))
+    ]);
+    await fetchAll();
+    renderAllTags();
+}
+
+async function deleteTag(tag) {
+    if (!confirm(`Supprimer le tag "${tag}" de toutes les entrées et images ?`)) return;
+
+    // entrées concernées
+    const affectedEntrees = entrees.filter(e => e.tags?.includes(tag));
+    const affectedImages = images.filter(i => i.tags?.includes(tag));
+
+    await Promise.all([
+        ...affectedEntrees.map(e => fetch(`${CFG.url}/rest/v1/entrees?id=eq.${e.id}`, {
+            method: 'PATCH', headers: H,
+            body: JSON.stringify({ tags: e.tags.filter(t => t !== tag) })
+        })),
+        ...affectedImages.map(i => fetch(`${CFG.url}/rest/v1/images?id=eq.${i.id}`, {
+            method: 'PATCH', headers: H,
+            body: JSON.stringify({ tags: i.tags.filter(t => t !== tag) })
+        }))
+    ]);
+
+    await fetchAll();
+    renderAllTags();
+}
+
+// ===== FILE D'ATTENTE =====
+async function refreshPendingBadge() {
+    try {
+        const [pe, pi] = await Promise.all([
+            fetch(`${CFG.url}/rest/v1/entrees?select=id&pending=is.true`, { headers: H }).then(r=>r.json()),
+            fetch(`${CFG.url}/rest/v1/images?select=id&pending=is.true`, { headers: H }).then(r=>r.json()),
+        ]);
+        const total = (pe?.length || 0) + (pi?.length || 0);
+        const badge = document.getElementById('pending-badge');
+        if (!badge) return;
+        if (total > 0) { badge.textContent = total; badge.classList.add('show'); }
+        else { badge.textContent = ''; badge.classList.remove('show'); }
+    } catch (e) { console.error('pending badge:', e); }
+}
+
+async function fetchPending() {
+    const [pe, pi] = await Promise.all([
+        fetch(`${CFG.url}/rest/v1/entrees?pending=is.true&order=created_at.desc`, { headers: H }).then(r=>r.json()),
+        fetch(`${CFG.url}/rest/v1/images?pending=is.true&order=created_at.desc`, { headers: H }).then(r=>r.json()),
+    ]);
+    renderPendingEntrees(pe);
+    renderPendingImages(pi);
+    refreshPendingBadge();
+}
+
+function renderPendingEntrees(items) {
+    const list = document.getElementById('pending-entrees-list');
+    list.innerHTML = '';
+    if (!items.length) { list.innerHTML = '<p style="font-size:11px;color:#aaa;padding:6px 0;">aucune entrée en attente.</p>'; return; }
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'pending-card';
+        const info = document.createElement('div'); info.className = 'info';
+        const strong = document.createElement('strong'); strong.textContent = item.name || '(sans nom)';
+        const meta = document.createElement('div'); meta.className = 'meta';
+        meta.textContent = `${item.univers || '?'} · ${item.categorie || '?'} · slug: ${item.slug || '—'}`;
+        const tags = document.createElement('div'); tags.className = 'tags';
+        (item.tags || []).forEach(t => { const s = document.createElement('span'); s.textContent = t; tags.appendChild(s); });
+        info.append(strong, meta, tags);
+        const placeholder = document.createElement('div');
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const validate = document.createElement('button'); validate.className = 'btn-validate'; validate.textContent = '✓ valider';
+        validate.onclick = () => validatePendingEntree(item.id);
+        const reject = document.createElement('button'); reject.className = 'btn-reject'; reject.textContent = '✕ rejeter';
+        reject.onclick = () => rejectPendingEntree(item.id);
+        actions.append(validate, reject);
+        card.append(placeholder, info, actions);
+        list.appendChild(card);
+    });
+}
+
+function renderPendingImages(items) {
+    const list = document.getElementById('pending-images-list');
+    list.innerHTML = '';
+    if (!items.length) { list.innerHTML = '<p style="font-size:11px;color:#aaa;padding:6px 0;">aucune image en attente.</p>'; return; }
+    items.forEach(img => {
+        const card = document.createElement('div');
+        card.className = 'pending-card is-image';
+        const src = img.src || (img.pages && img.pages[0]) || '';
+        const im = document.createElement('img');
+        if (src) { im.src = src; im.loading = 'lazy'; im.onerror = () => { im.style.display = 'none'; }; }
+        const info = document.createElement('div'); info.className = 'info';
+        const strong = document.createElement('strong'); strong.textContent = img.caption || '(sans caption)';
+        const meta = document.createElement('div'); meta.className = 'meta';
+        meta.textContent = `${img.univers || '?'}${img.pages ? ' · multi-pages (' + img.pages.length + ')' : ''}`;
+        const tags = document.createElement('div'); tags.className = 'tags';
+        (img.tags || []).forEach(t => { const s = document.createElement('span'); s.textContent = t; tags.appendChild(s); });
+        info.append(strong, meta, tags);
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const validate = document.createElement('button'); validate.className = 'btn-validate'; validate.textContent = '✓ valider';
+        validate.onclick = () => validatePendingImage(img.id);
+        const reject = document.createElement('button'); reject.className = 'btn-reject'; reject.textContent = '✕ rejeter';
+        reject.onclick = () => rejectPendingImage(img.id);
+        actions.append(validate, reject);
+        card.append(im, info, actions);
+        list.appendChild(card);
+    });
+}
+
+async function validatePendingEntree(id) {
+    const r = await fetch(`${CFG.url}/rest/v1/entrees?id=eq.${id}`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ pending: false })
+    });
+    if (r.ok) { fetchPending(); fetchAll(); }
+    else alert('erreur validation');
+}
+
+async function rejectPendingEntree(id) {
+    if (!confirm('Rejeter et supprimer cette entrée ?')) return;
+    const r = await fetch(`${CFG.url}/rest/v1/entrees?id=eq.${id}`, { method: 'DELETE', headers: H });
+    if (r.ok) fetchPending();
+    else alert('erreur rejet');
+}
+
+async function validatePendingImage(id) {
+    const r = await fetch(`${CFG.url}/rest/v1/images?id=eq.${id}`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ pending: false })
+    });
+    if (r.ok) { fetchPending(); fetchAll(); }
+    else alert('erreur validation');
+}
+
+async function rejectPendingImage(id) {
+    if (!confirm('Rejeter et supprimer cette image ?')) return;
+    const r = await fetch(`${CFG.url}/rest/v1/images?id=eq.${id}`, { method: 'DELETE', headers: H });
+    if (r.ok) fetchPending();
+    else alert('erreur rejet');
+}
+
+</script>
+</body>
+</html>

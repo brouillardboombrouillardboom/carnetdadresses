@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>carnet d'adresses</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .page-contenu {
+            font-family: 'OTNeueMontreal-BookSemiSqueezed';
+            font-size: 15px;
+            line-height: 1.6;
+            transform-origin: top left;
+            margin: 0;
+            outline: none;
+            min-height: 1.2em;
+        }
+        .page-contenu:empty::before { content: 'pas encore d\'info'; color: #bbb; font-style: italic; }
+        .page-contenu[contenteditable=true] { border-bottom: 1px dashed #ccc; }
+
+        .tags-wrap { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 0; }
+        .tags-wrap .tag-item {
+            font-family: monospace; font-size: 10px; color: #1a1a1a;
+            border-right: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a;
+            padding: 3px 8px; background: #b0b035;
+        }
+        .tags-wrap .tag-rm { display: none !important; }
+        .tag-add-input { font-family: monospace; font-size: 11px; border: 1px solid #1a1a1a; padding: 3px 6px; background: #fafaf8; outline: none; display: none; width: 110px; }
+        .edit-mode .tag-add-input { display: inline-block; }
+
+        .edit-toggle {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            font-family: monospace; font-size: 11px;
+            border: 1px solid #1a1a1a; background: #fafaf8;
+            padding: 5px 12px; cursor: pointer; z-index: 50;
+            letter-spacing: .05em;
+        }
+        .edit-toggle:hover, .edit-toggle.active { background: #1a1a1a; color: #fafaf8; }
+
+        .edit-actions { display: none; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #1a1a1a; margin-bottom: 1rem; }
+        .edit-mode .edit-actions { display: flex; }
+        .edit-actions button { font-family: monospace; font-size: 11px; border: 1px solid #1a1a1a; background: #fafaf8; padding: 3px 10px; cursor: pointer; }
+        .edit-actions button:hover { background: #1a1a1a; color: #fafaf8; }
+        .save-status { font-family: monospace; font-size: 11px; color: #888; }
+        .page-contenu a { color: #1a1a1a; text-decoration: underline; }
+        .page-contenu a:hover { opacity: .6; }
+
+        /* lightbox */
+        #lightbox { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
+        #lightbox.open { display: flex; }
+        .lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; }
+        .lb-figure { position: relative; z-index: 1; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .lb-figure img { max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; }
+        .lb-bottom { display: flex; gap: 1rem; align-items: baseline; }
+        .lb-figure figcaption { font-family: monospace; font-size: 11px; color: #aaa; letter-spacing: .04em; }
+        .lb-counter { font-family: monospace; font-size: 11px; color: #666; }
+        .lb-close { position: absolute; top: -2rem; right: 0; background: none; border: none; font-family: monospace; font-size: 14px; color: #aaa; cursor: pointer; padding: 0; }
+        .lb-close:hover { color: #fff; }
+        .lb-prev, .lb-next { position: absolute; top: 50%; transform: translateY(-50%); background: none; border: none; font-family: monospace; font-size: 18px; color: #aaa; cursor: pointer; padding: 0 .5rem; }
+        .lb-prev { left: -2.5rem; }
+        .lb-next { right: -2.5rem; }
+        .lb-prev:hover, .lb-next:hover { color: #fff; }
+
+        /* mobile : h1 déformé ne doit pas chevaucher le contenu */
+        @media (max-width: 720px) {
+            a:has(h1) {
+                display: block;
+                margin-bottom: 23.6vw;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="inner" id="root">
+
+    <a href="index.html" style="text-decoration:none;"><h1>carnet d'adresses</h1></a>
+
+    <div class="edit-actions">
+        <button onclick="saveAll()">enregistrer</button>
+        <button onclick="insertLink()" title="insérer un lien sur le texte sélectionné">⊕ lien</button>
+        <span class="save-status" id="save-status"></span>
+    </div>
+
+    <section>
+        <div class="grid1">
+            <div class="col-header" id="page-title">…</div>
+            <div class="col" style="padding: .5rem !important;">
+                <div class="page-contenu" id="page-contenu" contenteditable="false"></div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid1">
+            <div class="col-header">tags</div>
+            <div class="col">
+                <div class="tags-wrap" id="tags-wrap"></div>
+                <input type="text" class="tag-add-input" id="tag-add-input" placeholder="nouveau tag…">
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="grid1">
+            <div class="col-header">images</div>
+            <div class="col" id="col-images"></div>
+        </div>
+    </section>
+
+</div>
+
+<div id="lightbox">
+    <div class="lb-backdrop"></div>
+    <figure class="lb-figure">
+        <button class="lb-close" onclick="closeLightbox()">✕</button>
+        <button class="lb-prev" onclick="lbNav(-1)">←</button>
+        <button class="lb-next" onclick="lbNav(1)">→</button>
+        <img src="" alt="">
+        <div class="lb-bottom"><figcaption></figcaption><span class="lb-counter"></span></div>
+    </figure>
+</div>
+<button class="edit-toggle" id="edit-toggle" onclick="toggleEdit()">✎ éditer</button>
+
+<script>
+const CFG = {
+    url: 'https://nyzfqwwdkeqinnxduyqs.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55emZxd3dka2VxaW5ueGR1eXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NjQ5MTUsImV4cCI6MjA5MjM0MDkxNX0.nJ4HnkY34lhHPyWU6kCYoKFzdbi5ZTO398hQ0c9wiVQ',
+    pwdHash: '5ebb49e499a6613e832e433a2722edd0d2947d56fdb4d684af0f06c631fdf633',
+};
+const H = { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': 'application/json' };
+
+let entry = null, allImages = [], editMode = false;
+
+// --- auth ---
+async function hashPwd(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkAuth() {
+    if (sessionStorage.getItem('carnet_auth') === CFG.pwdHash) return true;
+    const p = prompt('Mot de passe :');
+    if (!p) return false;
+    const h = await hashPwd(p);
+    if (h === CFG.pwdHash) { sessionStorage.setItem('carnet_auth', h); return true; }
+    alert('Mot de passe incorrect.');
+    return false;
+}
+
+async function toggleEdit() {
+    if (!editMode && !await checkAuth()) return;
+    editMode = !editMode;
+    document.getElementById('root').classList.toggle('edit-mode', editMode);
+    document.getElementById('edit-toggle').classList.toggle('active', editMode);
+    document.getElementById('edit-toggle').textContent = editMode ? '✎ mode édition' : '✎ éditer';
+    const contenu = document.getElementById('page-contenu');
+    contenu.contentEditable = editMode ? 'true' : 'false';
+    if (editMode) contenu.focus();
+}
+
+// --- tags ---
+function renderTags() {
+    const wrap = document.getElementById('tags-wrap');
+    wrap.textContent = '';
+    (entry.tags || []).forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'tag-item';
+        span.appendChild(document.createTextNode(t));
+        wrap.appendChild(span);
+    });
+}
+
+function removeTag(t) {
+    entry.tags = entry.tags.filter(x => x !== t);
+    renderTags();
+    renderImages();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // keyboard nav lightbox
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') lbNav(-1);
+        if (e.key === 'ArrowRight') lbNav(1);
+    });
+    // fermer lightbox au clic backdrop
+    document.querySelector('.lb-backdrop').onclick = closeLightbox;
+
+    document.getElementById('tag-add-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            const val = e.target.value.trim();
+            if (val && !entry.tags.includes(val)) {
+                entry.tags.push(val);
+                renderTags();
+                renderImages();
+            }
+            e.target.value = '';
+        }
+    });
+});
+
+// --- lien ---
+function insertLink() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        alert("Sélectionner du texte d'abord.");
+        return;
+    }
+    const url = prompt('URL du lien (ex: page.html?slug=japon) :');
+    if (!url) return;
+    document.execCommand('createLink', false, url);
+    // cibler le lien créé et lui donner target _self
+    const links = document.getElementById('page-contenu').querySelectorAll('a:not([data-ok])');
+    links.forEach(a => { a.target = '_self'; a.dataset.ok = '1'; });
+}
+
+// --- save ---
+async function saveAll() {
+    const contenu = document.getElementById('page-contenu').innerHTML.trim();
+    const r = await fetch(`${CFG.url}/rest/v1/entrees?id=eq.${entry.id}`, {
+        method: 'PATCH',
+        headers: { ...H, Prefer: 'return=representation' },
+        body: JSON.stringify({ contenu, tags: entry.tags })
+    });
+    const s = document.getElementById('save-status');
+    s.textContent = r.ok ? '✓ enregistré' : '✗ erreur';
+    if (r.ok) entry.contenu = contenu;
+    setTimeout(() => s.textContent = '', 2500);
+}
+
+// --- images ---
+function renderImages() {
+    const col = document.getElementById('col-images');
+    if (!col || !entry) return;
+    const slug = entry.slug;
+    let imgs = allImages.filter(img => img.tags?.includes(slug));
+    imgs = [...imgs].sort(() => Math.random() - 0.5);
+    if (!imgs.length) { col.innerHTML = '<span class="empty">—</span>'; return; }
+    col.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'img-grid';
+    imgs.forEach(img => {
+        const pages = img.pages ?? [img.src];
+        const figure = document.createElement('figure');
+        figure.className = 'img-item';
+        const wrap = document.createElement('div');
+        wrap.className = 'img-wrap';
+        const el = document.createElement('img');
+        el.src = pages[0]; el.alt = img.caption || ''; el.loading = 'lazy';
+        el.style.cursor = 'pointer';
+        el.onclick = () => openLightbox(pages, img.caption || '', 0);
+        wrap.appendChild(el);
+        if (pages.length > 1) {
+            let cur = 0;
+            const counter = document.createElement('span');
+            counter.className = 'mini-counter';
+            counter.textContent = `1 / ${pages.length}`;
+            const prev = document.createElement('button');
+            prev.className = 'mini-arrow mini-prev'; prev.textContent = '←';
+            prev.onclick = e => { e.stopPropagation(); cur=Math.max(0,cur-1); el.src=pages[cur]; counter.textContent=`${cur+1} / ${pages.length}`; };
+            const next = document.createElement('button');
+            next.className = 'mini-arrow mini-next'; next.textContent = '→';
+            next.onclick = e => { e.stopPropagation(); cur=Math.min(pages.length-1,cur+1); el.src=pages[cur]; counter.textContent=`${cur+1} / ${pages.length}`; };
+            wrap.append(prev, next, counter);
+        }
+        figure.appendChild(wrap);
+        if (img.caption) {
+            const cap = document.createElement('figcaption');
+            cap.textContent = img.caption;
+            figure.appendChild(cap);
+        }
+        grid.appendChild(figure);
+    });
+    col.appendChild(grid);
+}
+
+// --- lightbox ---
+let lbPages = [], lbIndex = 0;
+
+function openLightbox(pages, caption, i = 0) {
+    lbPages = pages; lbIndex = i;
+    const lb = document.getElementById('lightbox');
+    lb.querySelector('img').src = lbPages[lbIndex];
+    lb.querySelector('figcaption').textContent = caption;
+    updateLbNav();
+    lb.classList.add('open');
+}
+
+function updateLbNav() {
+    const lb = document.getElementById('lightbox');
+    lb.querySelector('.lb-prev').style.visibility = lbPages.length > 1 && lbIndex > 0 ? 'visible' : 'hidden';
+    lb.querySelector('.lb-next').style.visibility = lbPages.length > 1 && lbIndex < lbPages.length - 1 ? 'visible' : 'hidden';
+    lb.querySelector('.lb-counter').textContent = lbPages.length > 1 ? `${lbIndex+1} / ${lbPages.length}` : '';
+}
+
+function lbNav(dir) {
+    lbIndex = Math.max(0, Math.min(lbPages.length - 1, lbIndex + dir));
+    document.getElementById('lightbox').querySelector('img').src = lbPages[lbIndex];
+    updateLbNav();
+}
+
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// --- init ---
+async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('slug');
+    const univers = params.get('univers');
+    if (!slug) { document.getElementById('page-title').textContent = 'page introuvable'; return; }
+
+    const univFilter = univers ? `&univers=eq.${encodeURIComponent(univers)}` : '';
+    const re = await fetch(`${CFG.url}/rest/v1/entrees?slug=eq.${encodeURIComponent(slug)}${univFilter}&pending=is.false`, { headers: H }).then(r=>r.json());
+
+    if (!re.length) { document.getElementById('page-title').textContent = 'introuvable : ' + slug; return; }
+    entry = re[0];
+
+    // images du même univers uniquement
+    const ri = await fetch(`${CFG.url}/rest/v1/images?univers=eq.${entry.univers || 'visuel'}&pending=is.false&order=created_at.asc`, { headers: H }).then(r=>r.json());
+    allImages = ri;
+    document.title = entry.name + ' — carnet d\'adresses';
+    document.getElementById('page-title').textContent = entry.name;
+    const contenu = document.getElementById('page-contenu');
+    contenu.innerHTML = entry.contenu || '';
+    renderTags();
+    renderImages();
+}
+
+init();
+</script>
+</body>
+</html>

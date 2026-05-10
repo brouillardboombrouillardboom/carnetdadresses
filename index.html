@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>carnet d'adresses</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="inner">
+        <h1>carnet d'adresses</h1>
+
+        <!-- sélecteur univers -->
+        <div class="univers-selector">
+            <button class="univers-btn active" data-univers="visuel" onclick="setUnivers('visuel')">visuel</button>
+            <button class="univers-btn" data-univers="film" onclick="setUnivers('film')">film</button>
+        </div>
+
+        <div class="page">
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="rechercher…" oninput="filter()" onkeydown="navigate(event)">
+            <span id="count" class="count"></span>
+        </div>
+
+        <!-- sections générées dynamiquement par main.js depuis Supabase -->
+        <div id="sections-container"></div>
+
+</div><!-- fin .page -->
+
+    <script src="main.js"></script>
+</div>
+</body>
+</html>
