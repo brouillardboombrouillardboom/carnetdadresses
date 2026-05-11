@@ -126,18 +126,105 @@ function openLightbox(pages, caption, i = 0) {
 
 function updateLbNav() {
     const lb = document.getElementById('lightbox');
-    lb.querySelector('.lb-prev').style.visibility = lbPages.length > 1 && lbIndex > 0 ? 'visible' : 'hidden';
-    lb.querySelector('.lb-next').style.visibility = lbPages.length > 1 && lbIndex < lbPages.length - 1 ? 'visible' : 'hidden';
-    lb.querySelector('.lb-counter').textContent = lbPages.length > 1 ? `${lbIndex+1} / ${lbPages.length}` : '';
+    if (lb.classList.contains('pdf-mode')) {
+        lb.querySelector('.lb-prev').style.visibility = lbPdfTotal > 1 && lbPdfPage > 1 ? 'visible' : 'hidden';
+        lb.querySelector('.lb-next').style.visibility = lbPdfTotal > 1 && lbPdfPage < lbPdfTotal ? 'visible' : 'hidden';
+        lb.querySelector('.lb-counter').textContent = lbPdfTotal > 1 ? `${lbPdfPage} / ${lbPdfTotal}` : '';
+    } else {
+        lb.querySelector('.lb-prev').style.visibility = lbPages.length > 1 && lbIndex > 0 ? 'visible' : 'hidden';
+        lb.querySelector('.lb-next').style.visibility = lbPages.length > 1 && lbIndex < lbPages.length - 1 ? 'visible' : 'hidden';
+        lb.querySelector('.lb-counter').textContent = lbPages.length > 1 ? `${lbIndex+1} / ${lbPages.length}` : '';
+    }
 }
 
 function lbNav(dir) {
-    lbIndex = Math.max(0, Math.min(lbPages.length - 1, lbIndex + dir));
-    document.getElementById('lightbox').querySelector('img').src = lbPages[lbIndex];
+    const lb = document.getElementById('lightbox');
+    if (lb.classList.contains('pdf-mode')) {
+        lbPdfPage = Math.max(1, Math.min(lbPdfTotal, lbPdfPage + dir));
+        renderPdfPage();
+    } else {
+        lbIndex = Math.max(0, Math.min(lbPages.length - 1, lbIndex + dir));
+        lb.querySelector('img').src = lbPages[lbIndex];
+        updateLbNav();
+    }
+}
+
+// === lightbox PDF ===
+let lbPdf = null, lbPdfPage = 1, lbPdfTotal = 1, lbPdfRenderTask = null;
+
+async function openPdfLightbox(pdfUrl, caption) {
+    const lb = document.getElementById('lightbox');
+    lb.classList.add('open', 'pdf-mode');
+    lb.querySelector('figcaption').textContent = caption;
+    lb.querySelector('img').style.display = 'none';
+
+    let canvas = lb.querySelector('canvas.lb-pdf-canvas');
+    if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.className = 'lb-pdf-canvas';
+        canvas.style.cssText = 'max-width:90vw;max-height:80vh;object-fit:contain;display:block;';
+        lb.querySelector('.lb-figure').insertBefore(canvas, lb.querySelector('.lb-bottom'));
+    }
+    canvas.style.display = 'block';
+
+    // charger PDF.js si pas déjà fait
+    if (!window.pdfjsLib) {
+        await loadPdfJs();
+    }
+    try {
+        lbPdf = await window.pdfjsLib.getDocument(pdfUrl).promise;
+        lbPdfTotal = lbPdf.numPages;
+        lbPdfPage = 1;
+        await renderPdfPage();
+    } catch (err) {
+        console.error('PDF load:', err);
+        lb.querySelector('figcaption').textContent = 'erreur de chargement PDF';
+    }
+}
+
+async function renderPdfPage() {
+    if (!lbPdf) return;
+    if (lbPdfRenderTask) { try { lbPdfRenderTask.cancel(); } catch(_) {} }
+    const page = await lbPdf.getPage(lbPdfPage);
+    const canvas = document.querySelector('#lightbox canvas.lb-pdf-canvas');
+    const v1 = page.getViewport({ scale: 1 });
+    const scale = Math.min((window.innerWidth * 0.9) / v1.width, (window.innerHeight * 0.8) / v1.height, 3);
+    const vp = page.getViewport({ scale });
+    canvas.width = vp.width; canvas.height = vp.height;
+    const ctx = canvas.getContext('2d');
+    lbPdfRenderTask = page.render({ canvasContext: ctx, viewport: vp });
+    await lbPdfRenderTask.promise;
     updateLbNav();
 }
 
-function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function loadPdfJs() {
+    return new Promise((resolve, reject) => {
+        // tenter charge ESM
+        const s = document.createElement('script');
+        s.type = 'module';
+        s.textContent = `
+            import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs')
+                .then(mod => {
+                    mod.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+                    window.pdfjsLib = mod;
+                    window.dispatchEvent(new Event('pdfjsready'));
+                });
+        `;
+        window.addEventListener('pdfjsready', () => resolve(), { once: true });
+        setTimeout(() => reject(new Error('PDF.js timeout')), 10000);
+        document.head.appendChild(s);
+    });
+}
+
+function closeLightbox() {
+    const lb = document.getElementById('lightbox');
+    lb.classList.remove('open', 'pdf-mode');
+    lb.querySelector('img').style.display = '';
+    const canvas = lb.querySelector('canvas.lb-pdf-canvas');
+    if (canvas) canvas.style.display = 'none';
+    if (lbPdfRenderTask) { try { lbPdfRenderTask.cancel(); } catch(_) {} }
+    lbPdf = null;
+}
 
 function renderImages(id, filterTag, searchQuery) {
     const col = document.getElementById(id);
@@ -183,7 +270,7 @@ function renderImages(id, filterTag, searchQuery) {
                       || null;
         }
         if (img.pdf) {
-            el.onclick = () => window.open(img.pdf, '_blank', 'noopener');
+            el.onclick = () => openPdfLightbox(img.pdf, img.caption || '');
         } else if (targetSlug) {
             el.onclick = () => window.location.href = `page.html?slug=${encodeURIComponent(targetSlug)}&univers=film`;
         } else {
