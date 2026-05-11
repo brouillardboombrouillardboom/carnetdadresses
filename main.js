@@ -30,7 +30,7 @@ async function reloadAll() {
     await renderSections();
     const [entrees, images] = await Promise.all([
         fetch(`${CFG.url}/rest/v1/entrees?select=id,name,slug,href,tags,categorie,univers&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
-        fetch(`${CFG.url}/rest/v1/images?select=id,src,pages,caption,tags,univers&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
+        fetch(`${CFG.url}/rest/v1/images?select=id,src,pages,caption,tags,univers,pdf&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
     ]);
     entrees.forEach(e => {
         if (!donnees[e.categorie]) donnees[e.categorie] = [];
@@ -182,7 +182,9 @@ function renderImages(id, filterTag, searchQuery) {
                       || (img.tags || []).find(t => slugSet.has(t))
                       || null;
         }
-        if (targetSlug) {
+        if (img.pdf) {
+            el.onclick = () => window.open(img.pdf, '_blank', 'noopener');
+        } else if (targetSlug) {
             el.onclick = () => window.location.href = `page.html?slug=${encodeURIComponent(targetSlug)}&univers=film`;
         } else {
             el.onclick = () => openLightbox(pages, img.caption || '', 0);

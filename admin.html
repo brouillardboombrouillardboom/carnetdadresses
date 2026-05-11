@@ -139,6 +139,13 @@
         .pending-card .actions .btn-reject:hover { background: #c00; color: #fafaf8; border-color: #c00; }
         .pending-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #888; margin: 1.5rem 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
     </style>
+    <!-- PDF.js pour génération de miniatures PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+    <script type="module">
+        import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+        window.pdfjsLib = pdfjsLib;
+    </script>
 </head>
 <body>
 
@@ -217,7 +224,7 @@
                 ondragleave="this.classList.remove('drag')"
                 ondrop="handleDrop(event)">
                 cliquer ou glisser des images ici
-                <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)">
+                <input type="file" id="file-input" accept="image/*,application/pdf" multiple onchange="handleFiles(this.files)">
             </div>
 
             <div class="file-list" id="file-list"></div>
@@ -305,7 +312,9 @@ const CFG = {
 };
 const SUPABASE_URL = CFG.url;
 const H = { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': 'application/json' };
-const MAX_SIZE = 250 * 1024; // 250ko
+const MAX_SIZE = 250 * 1024; // 250ko (images)
+const MAX_SIZE_PDF = 20 * 1024 * 1024; // 20Mo (pdf)
+const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
 // --- login ---
 async function hashPwd(str) {
@@ -445,16 +454,23 @@ function renderFileList() {
     const list = document.getElementById('file-list');
     list.innerHTML = '';
     selectedFiles.forEach((f, i) => {
-        const ok = f.size <= MAX_SIZE;
+        const pdf = isPdf(f);
+        const limit = pdf ? MAX_SIZE_PDF : MAX_SIZE;
+        const ok = f.size <= limit;
+        const sizeKo = f.size / 1024;
+        const sizeStr = sizeKo > 1024 ? `${(sizeKo/1024).toFixed(1)} Mo` : `${sizeKo.toFixed(0)} ko`;
+        const errMsg = pdf ? '✗ > 20 Mo' : '✗ > 250 ko';
         const div = document.createElement('div');
         div.className = 'file-item';
-        const url = URL.createObjectURL(f);
-        div.innerHTML = `
-            <img class="file-thumb" src="${url}">
-            <span class="fname">${f.name}</span>
-            <span class="fsize">${(f.size/1024).toFixed(0)} ko</span>
-            <span class="${ok ? 'fok' : 'ferr'}">${ok ? '✓' : '✗ > 250ko'}</span>
-            <button class="del" onclick="removeFile(${i})">✕</button>`;
+        // textContent pour sécurité (filenames non sanitisés)
+        const thumb = document.createElement(pdf ? 'span' : 'img');
+        if (pdf) { thumb.className = 'file-thumb'; thumb.textContent = '📄'; thumb.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;background:#f0f0ec;font-size:20px;'; }
+        else { thumb.className = 'file-thumb'; thumb.src = URL.createObjectURL(f); }
+        const nm = document.createElement('span'); nm.className = 'fname'; nm.textContent = f.name;
+        const sz = document.createElement('span'); sz.className = 'fsize'; sz.textContent = sizeStr;
+        const st = document.createElement('span'); st.className = ok ? 'fok' : 'ferr'; st.textContent = ok ? '✓' : errMsg;
+        const del = document.createElement('button'); del.className = 'del'; del.textContent = '✕'; del.onclick = () => removeFile(i);
+        div.append(thumb, nm, sz, st, del);
         list.appendChild(div);
     });
 }
@@ -467,6 +483,39 @@ function removeFile(i) {
     } else {
         setMode(uploadMode);
     }
+}
+
+
+// génère une miniature PNG (Blob) de la 1ère page d'un PDF
+async function pdfToThumbnail(file) {
+    if (!window.pdfjsLib) throw new Error('PDF.js pas encore chargé');
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    // viewport échelle pour ~800px de large max
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = Math.min(800 / viewport.width, 2);
+    const vp = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/png', 0.9);
+    });
+}
+
+// upload arbitrary blob (image ou pdf) avec extension forcée
+async function uploadBlob(blob, name, contentType) {
+    const safeName = name.replace(/[^a-z0-9.\-_]/gi,'_');
+    const path = `img/${Date.now()}_${safeName}`;
+    const r = await fetch(`${CFG.url}/storage/v1/object/images/${path}`, {
+        method: 'POST',
+        headers: { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': contentType },
+        body: blob
+    });
+    if (!r.ok) throw new Error('upload échoué : ' + name);
+    return `${CFG.url}/storage/v1/object/public/images/${path}`;
 }
 
 // --- upload vers Supabase Storage ---
@@ -493,10 +542,10 @@ async function uploadAndSave() {
 
     if (!selectedFiles.length) { setStatus('i-status', false, '⚠ aucun fichier'); return; }
 
-    // vérifier taille individuelle
-    const tooLarge = selectedFiles.filter(f => f.size > MAX_SIZE);
+    // vérifier taille individuelle (limite différente pour PDF vs image)
+    const tooLarge = selectedFiles.filter(f => f.size > (isPdf(f) ? MAX_SIZE_PDF : MAX_SIZE));
     if (tooLarge.length) {
-        setStatus('i-status', false, `✗ ${tooLarge.length} image(s) > 250ko`);
+        setStatus('i-status', false, `✗ ${tooLarge.length} fichier(s) trop volumineux`);
         return;
     }
 
@@ -504,12 +553,25 @@ async function uploadAndSave() {
     setStatus('i-status', false, '');
 
     try {
-        const urls = [];
+        // résultats : tableau de {src, pdf|null}
+        const results = [];
         for (let i = 0; i < selectedFiles.length; i++) {
+            const f = selectedFiles[i];
             progress.textContent = `upload ${i+1} / ${selectedFiles.length}…`;
-            const url = await uploadFile(selectedFiles[i]);
-            urls.push(url);
+            if (isPdf(f)) {
+                // 1. uploader le PDF
+                const pdfUrl = await uploadBlob(f, f.name, 'application/pdf');
+                // 2. générer + uploader la miniature
+                const thumbBlob = await pdfToThumbnail(f);
+                const thumbName = f.name.replace(/\.pdf$/i, '') + '_thumb.png';
+                const thumbUrl = await uploadBlob(thumbBlob, thumbName, 'image/png');
+                results.push({ src: thumbUrl, pdf: pdfUrl });
+            } else {
+                const url = await uploadFile(f);
+                results.push({ src: url, pdf: null });
+            }
         }
+        const urls = results.map(r => r.src); // compat pour mode multipage
 
         if (uploadMode === 'multipage') {
             // un seul objet avec pages[]
@@ -524,9 +586,10 @@ async function uploadAndSave() {
             images.unshift(...inserted);
         } else {
             // images individuelles — une entrée par image (caption commune ou individuelle)
-            for (let i = 0; i < urls.length; i++) {
+            for (let i = 0; i < results.length; i++) {
                 const cap = (captionMode === 'individual') ? (captions[i] || '') : caption;
-                const body = { src: urls[i], caption: cap, tags, univers: currentUnivers };
+                const body = { src: results[i].src, caption: cap, tags, univers: currentUnivers };
+                if (results[i].pdf) body.pdf = results[i].pdf;
                 const r = await fetch(`${CFG.url}/rest/v1/images`, {
                     method: 'POST',
                     headers: { ...H, Prefer: 'return=representation' },

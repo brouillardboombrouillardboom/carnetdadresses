@@ -248,7 +248,11 @@ function renderImages() {
         const el = document.createElement('img');
         el.src = pages[0]; el.alt = img.caption || ''; el.loading = 'lazy';
         el.style.cursor = 'pointer';
-        el.onclick = () => openLightbox(pages, img.caption || '', 0);
+        if (img.pdf) {
+            el.onclick = () => window.open(img.pdf, '_blank', 'noopener');
+        } else {
+            el.onclick = () => openLightbox(pages, img.caption || '', 0);
+        }
         wrap.appendChild(el);
         if (pages.length > 1) {
             let cur = 0;
@@ -315,7 +319,7 @@ async function init() {
     entry = re[0];
 
     // images du même univers uniquement
-    const ri = await fetch(`${CFG.url}/rest/v1/images?univers=eq.${entry.univers || 'visuel'}&pending=is.false&order=created_at.asc`, { headers: H }).then(r=>r.json());
+    const ri = await fetch(`${CFG.url}/rest/v1/images?select=id,src,pages,caption,tags,univers,pdf&univers=eq.${entry.univers || 'visuel'}&pending=is.false&order=created_at.asc`, { headers: H }).then(r=>r.json());
     allImages = ri;
     document.title = entry.name + ' — carnet d\'adresses';
     document.getElementById('page-title').textContent = entry.name;

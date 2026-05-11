@@ -79,6 +79,13 @@
         .univers-btn-admin:hover { background: #1a1a1a; color: #fafaf8; }
         .univers-btn-admin.active:hover { background: #ff6644; color: #1a1a1a; }
     </style>
+    <!-- PDF.js pour génération de miniatures PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+    <script type="module">
+        import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+        window.pdfjsLib = pdfjsLib;
+    </script>
 </head>
 <body>
 
@@ -153,7 +160,7 @@
                 ondragleave="this.style.background=''"
                 ondrop="handleDrop(event)">
                 cliquer ou glisser des images ici
-                <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(this.files)">
+                <input type="file" id="file-input" accept="image/*,application/pdf" multiple onchange="handleFiles(this.files)">
             </div>
             <div class="file-list" id="file-list"></div>
             <div class="multipage-choice" id="multipage-choice">
@@ -194,6 +201,8 @@ const CFG = {
 const SUPABASE_URL = CFG.url;
 const H = { apikey: CFG.key, Authorization: `Bearer ${CFG.key}`, 'Content-Type': 'application/json' };
 const MAX_SIZE = 250 * 1024;
+const MAX_SIZE_PDF = 20 * 1024 * 1024;
+const isPdf = (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
 async function hashPwd(str) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -408,16 +417,50 @@ function renderFileList() {
     const list = document.getElementById('file-list');
     list.innerHTML = '';
     selectedFiles.forEach((f,i) => {
-        const ok = f.size <= MAX_SIZE;
+        const pdf = isPdf(f);
+        const limit = pdf ? MAX_SIZE_PDF : MAX_SIZE;
+        const ok = f.size <= limit;
+        const sizeKo = f.size / 1024;
+        const sizeStr = sizeKo > 1024 ? `${(sizeKo/1024).toFixed(1)} Mo` : `${sizeKo.toFixed(0)} ko`;
+        const errMsg = pdf ? '✗ > 20 Mo' : '✗ > 250 ko';
         const div = document.createElement('div');
         div.className = 'file-item';
-        const im = document.createElement('img'); im.className = 'file-thumb'; im.src = URL.createObjectURL(f);
+        const thumb = document.createElement(pdf ? 'span' : 'img');
+        if (pdf) { thumb.className='file-thumb'; thumb.textContent='📄'; thumb.style.cssText='display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;background:#f0f0ec;font-size:20px;'; }
+        else { thumb.className='file-thumb'; thumb.src=URL.createObjectURL(f); }
         const fname = document.createElement('span'); fname.className = 'fname'; fname.textContent = f.name;
-        const fsize = document.createElement('span'); fsize.className = 'fsize'; fsize.textContent = `${(f.size/1024).toFixed(0)} ko`;
-        const fok = document.createElement('span'); fok.className = ok ? 'fok' : 'ferr'; fok.textContent = ok ? '✓' : '✗ > 250ko';
-        div.append(im, fname, fsize, fok);
+        const fsize = document.createElement('span'); fsize.className = 'fsize'; fsize.textContent = sizeStr;
+        const fok = document.createElement('span'); fok.className = ok ? 'fok' : 'ferr'; fok.textContent = ok ? '✓' : errMsg;
+        div.append(thumb, fname, fsize, fok);
         list.appendChild(div);
     });
+}
+
+async function pdfToThumbnail(file) {
+    if (!window.pdfjsLib) throw new Error('PDF.js pas encore chargé');
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1 });
+    const scale = Math.min(800 / viewport.width, 2);
+    const vp = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/png', 0.9);
+    });
+}
+
+async function uploadBlob(blob, name, contentType) {
+    const safeName = name.replace(/[^a-z0-9.\-_]/gi,'_');
+    const path = `img/${Date.now()}_${safeName}`;
+    const r = await fetch(`${CFG.url}/storage/v1/object/images/${path}`, {
+        method:'POST', headers:{apikey:CFG.key,Authorization:`Bearer ${CFG.key}`,'Content-Type':contentType}, body:blob
+    });
+    if (!r.ok) throw new Error('upload échoué : '+name);
+    return `${CFG.url}/storage/v1/object/public/images/${path}`;
 }
 
 async function uploadFile(file) {
@@ -440,24 +483,40 @@ async function uploadAndSave() {
     const progress = document.getElementById('upload-progress');
 
     if (!selectedFiles.length) { setStatus('i-status',false,'⚠ aucun fichier'); return; }
-    if (selectedFiles.some(f=>f.size>MAX_SIZE)) { setStatus('i-status',false,'✗ image(s) > 250ko'); return; }
+    const tooLarge = selectedFiles.filter(f => f.size > (isPdf(f) ? MAX_SIZE_PDF : MAX_SIZE));
+    if (tooLarge.length) { setStatus('i-status',false,`✗ ${tooLarge.length} fichier(s) trop volumineux`); return; }
 
     progress.textContent = 'upload en cours…';
     try {
-        const urls = [];
+        const results = [];
         for (let i=0;i<selectedFiles.length;i++) {
+            const f = selectedFiles[i];
             progress.textContent = `upload ${i+1} / ${selectedFiles.length}…`;
-            urls.push(await uploadFile(selectedFiles[i]));
+            if (isPdf(f)) {
+                const pdfUrl = await uploadBlob(f, f.name, 'application/pdf');
+                const thumbBlob = await pdfToThumbnail(f);
+                const thumbName = f.name.replace(/\.pdf$/i, '') + '_thumb.png';
+                const thumbUrl = await uploadBlob(thumbBlob, thumbName, 'image/png');
+                results.push({ src: thumbUrl, pdf: pdfUrl });
+            } else {
+                const url = await uploadFile(f);
+                results.push({ src: url, pdf: null });
+            }
         }
+        const urls = results.map(r => r.src);
         const bodies = uploadMode==='multipage'
             ? [{ pages:urls, caption, tags, univers: currentUnivers, pending: true }]
-            : urls.map((url, i) => ({
-                src: url,
-                caption: (captionMode === 'individual') ? (captions[i] || '') : caption,
-                tags,
-                univers: currentUnivers,
-                pending: true
-            }));
+            : results.map((r, i) => {
+                const body = {
+                    src: r.src,
+                    caption: (captionMode === 'individual') ? (captions[i] || '') : caption,
+                    tags,
+                    univers: currentUnivers,
+                    pending: true
+                };
+                if (r.pdf) body.pdf = r.pdf;
+                return body;
+            });
 
         for (const body of bodies) {
             const r = await fetch(`${CFG.url}/rest/v1/images`, {
