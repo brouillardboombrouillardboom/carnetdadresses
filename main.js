@@ -29,7 +29,7 @@ async function reloadAll() {
     donnees = { images: [] };
     await renderSections();
     const [entrees, images] = await Promise.all([
-        fetch(`${CFG.url}/rest/v1/entrees?select=id,name,slug,href,tags,categorie,univers&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
+        fetch(`${CFG.url}/rest/v1/entrees?select=id,name,slug,href,tags,categorie,univers,lien&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
         fetch(`${CFG.url}/rest/v1/images?select=id,src,pages,caption,tags,univers,pdf&univers=eq.${currentUnivers}&pending=is.false&order=created_at.asc`, { headers: dbHeaders }).then(r=>r.json()),
     ]);
     entrees.forEach(e => {
@@ -320,6 +320,89 @@ function _filterImpl() {
     const c = document.getElementById('count');
     if (c) c.textContent = total + ' entrée' + (total !== 1 ? 's' : '');
     renderImages('col-images', document.body.dataset.tag ?? null, q);
+    renderArticles('col-articles', q);
+}
+
+// rendu spécial pour l'univers biblio : articles groupés par sujet, triés alpha
+function renderArticles(id, q) {
+    const col = document.getElementById(id);
+    if (!col) return;
+    // récupère toutes les entrées avec un lien (catégorie sujet/date/auteur)
+    let articles = tousItems().filter(i => i.lien);
+    if (q) {
+        articles = articles.filter(i =>
+            (i.name || '').toLowerCase().includes(q)
+            || (i.tags || []).some(t => t.toLowerCase().includes(q))
+        );
+    }
+    // grouper par catégorie (sujet, date, auteur…)
+    // mais en biblio on veut grouper par 'sujet' uniquement — ce sont les entrées de catégorie sujet
+    // afficher les articles sous chaque sujet, triés alpha par nom
+    // récupère la liste des sujets
+    const sujets = (donnees['sujet'] || []).slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    col.innerHTML = '';
+    col.style.display = 'block';
+
+    if (!sujets.length && !articles.length) {
+        col.innerHTML = '<span class="empty">—</span>';
+        return;
+    }
+
+    sujets.forEach(suj => {
+        // tag du sujet (slug) doit être présent dans les tags des articles
+        const matching = articles
+            .filter(a => (a.tags || []).includes(suj.slug))
+            .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+        if (!matching.length) return;
+        const group = document.createElement('div');
+        group.className = 'biblio-group';
+        const h = document.createElement('div');
+        h.className = 'biblio-group-title';
+        h.textContent = suj.name;
+        group.appendChild(h);
+        const ul = document.createElement('ul');
+        ul.className = 'biblio-list';
+        matching.forEach(a => {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = a.lien;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = a.name;
+            li.appendChild(link);
+            ul.appendChild(li);
+        });
+        group.appendChild(ul);
+        col.appendChild(group);
+    });
+
+    // articles non classés sous un sujet (orphelins)
+    const classed = new Set();
+    sujets.forEach(s => articles.forEach(a => { if ((a.tags||[]).includes(s.slug)) classed.add(a.id); }));
+    const orphans = articles.filter(a => !classed.has(a.id))
+        .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    if (orphans.length) {
+        const group = document.createElement('div');
+        group.className = 'biblio-group';
+        const h = document.createElement('div');
+        h.className = 'biblio-group-title';
+        h.textContent = '— sans sujet';
+        group.appendChild(h);
+        const ul = document.createElement('ul');
+        ul.className = 'biblio-list';
+        orphans.forEach(a => {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            link.href = a.lien;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = a.name;
+            li.appendChild(link);
+            ul.appendChild(li);
+        });
+        group.appendChild(ul);
+        col.appendChild(group);
+    }
 }
 
 function navigate(e) {

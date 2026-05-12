@@ -62,7 +62,7 @@ p {text-align: justify;
 }
 
 /* recherche */
-.search-bar { display: flex; align-items: center; gap: 1rem; z-index: 1; margin-top: 0.11vw; }
+.search-bar { display: flex; align-items: center; gap: 1rem; border-top: 1px solid #1a1a1a; z-index: 1; margin-top: 0.11vw; }
 input { flex: 1; font-size: 13px; background: transparent; border: none; padding: 7px 0 7px 1vw; outline: none; color: #1a1a1a; }
 .count { font-size: 11px; color: #bbb; }
 
@@ -85,7 +85,7 @@ input { flex: 1; font-size: 13px; background: transparent; border: none; padding
     flex: 1;
     font-family: 'Feroniapi-MediumItalic';
     font-size: 1rem;
-    padding: 7px 0 4px 6px;
+    padding: 6px 0 3px 6px;
     background: transparent;
     border: none;
     border-right: 1px solid #1a1a1a;
@@ -214,6 +214,29 @@ section {
 
 
 
+
+
+/* === univers BIBLIO === */
+.biblio-group { padding: 0.5rem 0.75rem 1rem; }
+.biblio-group-title {
+    font-family: 'Feroniapi-MediumItalic';
+    font-size: 0.95rem;
+    color: #1a1a1a;
+    margin: 0 0 6px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #1a1a1a;
+}
+.biblio-list { list-style: none; padding: 0; margin: 0; }
+.biblio-list li { padding: 3px 0; }
+.biblio-list a {
+    font-family: monospace;
+    font-size: 11px;
+    color: #1a1a1a;
+    text-decoration: none;
+    line-height: 1.4;
+}
+.biblio-list a:hover { color: #ff6644; text-decoration: underline; }
+
 /* PARAMÈTRES GRILLES */
 
 /* grid3 — 3 colonnes égales */
@@ -322,19 +345,6 @@ section {
     .col-header {
         padding: 3px 0 3px 6px;
     }
-    .univers-btn {
-                flex: 1;
-                font-family: 'Feroniapi-MediumItalic';
-                font-size: 1rem;
-                padding: 3px 0 3px 6px;
-                background: transparent;
-                border: none;
-                border-right: 1px solid #1a1a1a;
-                cursor: pointer;
-                color: #1a1a1a;
-                text-align: left;
-                transition: background .15s;
-        }
 
         @media (max-width: 720px) {
             h1 { 
@@ -347,19 +357,6 @@ section {
             .col-header {
                 padding: 3px 0 3px 6px;
             }
-            .univers-btn {
-                flex: 1;
-                font-family: 'Feroniapi-MediumItalic';
-                font-size: 1rem;
-                padding: 3px 0 3px 6px;
-                background: transparent;
-                border: none;
-                border-right: 1px solid #1a1a1a;
-                cursor: pointer;
-                color: #1a1a1a;
-                text-align: left;
-                transition: background .15s;
-        }
     }
 }
 
@@ -389,19 +386,6 @@ section {
         
         .col-header {
             padding: 3px 0 3px 6px;
-        }
-        .univers-btn {
-            flex: 1;
-            font-family: 'Feroniapi-MediumItalic';
-            font-size: 1rem;
-            padding: 3px 0 3px 6px;
-            background: transparent;
-            border: none;
-            border-right: 1px solid #1a1a1a;
-            cursor: pointer;
-            color: #1a1a1a;
-            text-align: left;
-            transition: background .15s;
         }
     }    
 }

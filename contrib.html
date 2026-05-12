@@ -103,6 +103,7 @@
         <span class="univers-label">univers :</span>
         <button class="univers-btn-admin active" data-univers="visuel" onclick="setContribUnivers('visuel')">visuel</button>
         <button class="univers-btn-admin" data-univers="film" onclick="setContribUnivers('film')">film</button>
+        <button class="univers-btn-admin" data-univers="biblio" onclick="setContribUnivers('biblio')">biblio</button>
     </div>
 
     <div class="tabs">
@@ -128,6 +129,9 @@
                     <option value="date">date</option>
                 </select>
                 <input type="text" id="e-name" placeholder="nom affiché" oninput="updateSlugPreview()">
+            </div>
+            <div class="form-row" id="e-lien-row" style="display:none;">
+                <input type="url" id="e-lien" placeholder="lien vers l'article (https://…)" style="flex:1;">
             </div>
             <div class="slug-preview" id="slug-preview">page : —</div>
             <div class="form-row">
@@ -250,13 +254,29 @@ function updateCategorySelector() {
         ['realisateur','réalisateur'],['acteur','acteur'],
         ['date','date'],['genre','genre'],['pays','pays']
     ];
-    const opts = (currentUnivers === 'film') ? filmOpts : visuelOpts;
+    const biblioOpts = [
+        ['', 'catégorie…'],
+        ['article','article'],
+        ['sujet','sujet'],['date','date'],['auteur','auteur']
+    ];
+    let opts = visuelOpts;
+    if (currentUnivers === 'film') opts = filmOpts;
+    else if (currentUnivers === 'biblio') opts = biblioOpts;
     sel.innerHTML = '';
     opts.forEach(([v, l]) => {
         const o = document.createElement('option');
         o.value = v; o.textContent = l;
         sel.appendChild(o);
     });
+    updateLienVisibility();
+    sel.onchange = updateLienVisibility;
+}
+
+function updateLienVisibility() {
+    const row = document.getElementById('e-lien-row');
+    const cat = document.getElementById('e-cat').value;
+    if (!row) return;
+    row.style.display = (currentUnivers === 'biblio' && cat === 'article') ? '' : 'none';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -342,12 +362,19 @@ async function addEntree() {
     const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
     const r = await fetch(`${CFG.url}/rest/v1/entrees`, {
         method:'POST', headers:{...H,Prefer:'return=representation'},
-        body: JSON.stringify({ categorie:cat, name, href:`page.html?slug=${slug}`, slug, tags, contenu:'', univers: currentUnivers, pending: true })
+        body: JSON.stringify((() => {
+            const obj = { categorie:cat, name, href:`page.html?slug=${slug}`, slug, tags, contenu:'', univers: currentUnivers, pending: true };
+            const lien = document.getElementById('e-lien')?.value.trim();
+            if (lien) obj.lien = lien;
+            return obj;
+        })())
     });
     if (r.ok) {
         setStatus('e-status',true,'✓ ajouté');
         document.getElementById('e-name').value='';
         document.getElementById('e-tags').value='';
+        const lienInp = document.getElementById('e-lien');
+        if (lienInp) lienInp.value = '';
         document.getElementById('slug-preview').innerHTML='page : —';
         fetchTags();
     } else {
