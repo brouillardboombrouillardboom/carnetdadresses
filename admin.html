@@ -386,6 +386,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('app').style.display = 'block';
         document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
         updateCategorySelector();
+        updateTabsVisibility();
         fetchAll();
     }
 });
@@ -642,6 +643,19 @@ function setAdminUnivers(u) {
     fetchAll();
     if (typeof fetchSections === 'function') fetchSections();
     updateCategorySelector();
+    updateTabsVisibility();
+}
+
+// masque l'onglet "images" si univers=biblio
+function updateTabsVisibility() {
+    const imgTab = Array.from(document.querySelectorAll('.tab')).find(t => t.textContent.trim() === 'images');
+    const imgContent = document.getElementById('tab-images');
+    const hide = (currentUnivers === 'biblio');
+    if (imgTab) imgTab.style.display = hide ? 'none' : '';
+    if (hide && imgContent && imgContent.classList.contains('active')) {
+        // si onglet image actif et qu'on masque, basculer sur entrées
+        switchTab('entrees');
+    }
 }
 
 // adapter le select e-cat selon univers
@@ -742,7 +756,7 @@ function toSlug(name) {
 function updateSlugPreview() {
     const name = document.getElementById('e-name').value.trim();
     const slug = name ? toSlug(name) : null;
-    document.getElementById('slug-preview').innerHTML = slug
+    document.getElementById('slug-preview').textContent = slug
         ? `page : <a href="page.html?slug=${slug}" target="_blank">page.html?slug=${slug}</a>`
         : 'page : —';
 }
@@ -770,7 +784,7 @@ async function addEntree() {
         document.getElementById('e-tags').value='';
         const lienInp = document.getElementById('e-lien');
         if (lienInp) lienInp.value = '';
-        document.getElementById('slug-preview').innerHTML='page : —';
+        document.getElementById('slug-preview').textContent='page : —';
         fetchAll();
     } else {
         const err = await r.json().catch(()=>({}));
@@ -870,7 +884,11 @@ function removeTagFromEntry(id, tag) {
     if (!item) return;
     item.tags = (item.tags||[]).filter(t=>t!==tag);
     renderEntreeTagsEdit(item);
-    document.getElementById(`badges-e-${id}`).innerHTML = item.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    (() => {
+        const el = document.getElementById(`badges-e-${id}`);
+        el.textContent = '';
+        item.tags.forEach(t => { const s = document.createElement('span'); s.className='tag-badge'; s.textContent=t; el.appendChild(s); });
+    })();
 }
 
 function addTagToEntry(id) {
@@ -882,7 +900,11 @@ function addTagToEntry(id) {
     if (!item.tags) item.tags=[];
     item.tags.push(val);
     renderEntreeTagsEdit(item);
-    document.getElementById(`badges-e-${id}`).innerHTML = item.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    (() => {
+        const el = document.getElementById(`badges-e-${id}`);
+        el.textContent = '';
+        item.tags.forEach(t => { const s = document.createElement('span'); s.className='tag-badge'; s.textContent=t; el.appendChild(s); });
+    })();
     inp.value='';
 }
 
@@ -1043,7 +1065,11 @@ function removeTagFromImage(id, tag) {
     if (!img) return;
     img.tags = (img.tags||[]).filter(t=>t!==tag);
     renderImageTagsEdit(img);
-    document.getElementById(`badges-i-${id}`).innerHTML = img.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    (() => {
+        const el = document.getElementById(`badges-i-${id}`);
+        el.textContent = '';
+        img.tags.forEach(t => { const s = document.createElement('span'); s.className='tag-badge'; s.textContent=t; el.appendChild(s); });
+    })();
 }
 
 function addTagToImage(id) {
@@ -1055,7 +1081,11 @@ function addTagToImage(id) {
     if (!img.tags) img.tags=[];
     img.tags.push(val);
     renderImageTagsEdit(img);
-    document.getElementById(`badges-i-${id}`).innerHTML = img.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    (() => {
+        const el = document.getElementById(`badges-i-${id}`);
+        el.textContent = '';
+        img.tags.forEach(t => { const s = document.createElement('span'); s.className='tag-badge'; s.textContent=t; el.appendChild(s); });
+    })();
     inp.value='';
 }
 
@@ -1093,14 +1123,18 @@ async function fetchSections() {
 function renderSectionList() {
     const list = document.getElementById('section-list');
     list.innerHTML = '';
-    sections.forEach((sec, i) => {
+    sections.forEach((sec) => {
+        const wrap = document.createElement('div');
+
+        // ligne principale
         const div = document.createElement('div');
         div.className = 'list-item';
-        const cols = (sec.colonnes || []).map(c => `${c.header||'—'}:${c.categorie}`).join(', ');
-        
+
+        const cols = (sec.colonnes || []).map(c => `${c.header||'—'}:${c.categorie||'—'}`).join(', ');
+
         const name = document.createElement('span');
         name.className = 'item-name';
-        name.textContent = sec.h2; // textContent → XSS safe
+        name.textContent = sec.h2;
 
         const grid = document.createElement('select');
         grid.className = 'item-sub';
@@ -1120,6 +1154,12 @@ function renderSectionList() {
         const spacer = document.createElement('span');
         spacer.className = 'item-spacer';
 
+        const editBtn = document.createElement('button');
+        editBtn.className = 'item-edit-btn';
+        editBtn.textContent = '✎';
+        editBtn.title = 'éditer colonnes';
+        editBtn.onclick = () => toggleEditRow('srow-' + sec.id);
+
         const upBtn = document.createElement('button');
         upBtn.className = 'item-edit-btn';
         upBtn.textContent = '↑';
@@ -1135,9 +1175,80 @@ function renderSectionList() {
         delBtn.textContent = '✕';
         delBtn.onclick = () => deleteSection(sec.id);
 
-        div.append(name, grid, colsSpan, spacer, upBtn, downBtn, delBtn);
-        list.appendChild(div);
+        div.append(name, grid, colsSpan, spacer, editBtn, upBtn, downBtn, delBtn);
+
+        // edit row (cachée par défaut)
+        const editRow = document.createElement('div');
+        editRow.className = 'edit-row';
+        editRow.id = 'srow-' + sec.id;
+
+        // pour chaque colonne, 3 inputs : header / col_id / categorie
+        (sec.colonnes || []).forEach((col, idx) => {
+            const row = document.createElement('div');
+            row.className = 'edit-row-actions';
+            row.style.cssText = 'margin-bottom:4px;gap:6px;';
+
+            const label = document.createElement('span');
+            label.style.cssText = 'font-size:10px;color:#888;min-width:60px;';
+            label.textContent = `col ${idx+1} :`;
+
+            const hInput = document.createElement('input');
+            hInput.type = 'text'; hInput.placeholder = 'header';
+            hInput.value = col.header || '';
+            hInput.id = `s-h-${sec.id}-${idx}`;
+            hInput.style.cssText = 'flex:1;font-size:11px;';
+
+            const idInput = document.createElement('input');
+            idInput.type = 'text'; idInput.placeholder = 'col_id';
+            idInput.value = col.col_id || '';
+            idInput.id = `s-cid-${sec.id}-${idx}`;
+            idInput.style.cssText = 'flex:1;font-size:11px;font-family:monospace;';
+
+            const cInput = document.createElement('input');
+            cInput.type = 'text'; cInput.placeholder = 'catégorie';
+            cInput.value = col.categorie || '';
+            cInput.id = `s-cat-${sec.id}-${idx}`;
+            cInput.style.cssText = 'flex:1;font-size:11px;font-family:monospace;';
+
+            row.append(label, hInput, idInput, cInput);
+            editRow.appendChild(row);
+        });
+
+        // bouton save
+        const saveRow = document.createElement('div');
+        saveRow.className = 'edit-row-actions';
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'inline-save';
+        saveBtn.textContent = 'enregistrer';
+        saveBtn.onclick = () => saveSectionColumns(sec.id);
+        const status = document.createElement('span');
+        status.id = `sstatus-${sec.id}`;
+        status.style.cssText = 'font-size:11px;color:#888;';
+        saveRow.append(saveBtn, status);
+        editRow.appendChild(saveRow);
+
+        wrap.append(div, editRow);
+        list.appendChild(wrap);
     });
+}
+
+async function saveSectionColumns(id) {
+    const sec = sections.find(s => s.id === id);
+    if (!sec) return;
+    const newCols = (sec.colonnes || []).map((_, idx) => {
+        const h = document.getElementById(`s-h-${id}-${idx}`)?.value.trim() || null;
+        const cid = document.getElementById(`s-cid-${id}-${idx}`)?.value.trim() || null;
+        const cat = document.getElementById(`s-cat-${id}-${idx}`)?.value.trim() || null;
+        return { header: h, col_id: cid, categorie: cat };
+    });
+    const r = await fetch(`${CFG.url}/rest/v1/sections?id=eq.${id}`, {
+        method: 'PATCH', headers: H,
+        body: JSON.stringify({ colonnes: newCols })
+    });
+    const status = document.getElementById(`sstatus-${id}`);
+    status.textContent = r.ok ? '✓' : '✗';
+    if (r.ok) sec.colonnes = newCols;
+    setTimeout(() => { status.textContent = ''; if (r.ok) fetchSections(); }, 1500);
 }
 
 async function addSection() {

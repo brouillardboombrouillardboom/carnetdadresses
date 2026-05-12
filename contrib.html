@@ -221,6 +221,7 @@ async function tryLogin() {
         document.getElementById('app').style.display = 'block';
         document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
         updateCategorySelector();
+        updateTabsVisibility();
         fetchTags();
     } else {
         document.getElementById('login-error').textContent = 'mot de passe incorrect';
@@ -236,7 +237,18 @@ function setContribUnivers(u) {
     document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === u));
     updateCategorySelector();
     fetchTags();
+    updateTabsVisibility();
     if (document.getElementById('tab-liste')?.classList.contains('active')) fetchListeEntrees();
+}
+
+function updateTabsVisibility() {
+    const imgTab = Array.from(document.querySelectorAll('.tab')).find(t => t.textContent.trim() === '+ image');
+    const imgContent = document.getElementById('tab-images');
+    const hide = (currentUnivers === 'biblio');
+    if (imgTab) imgTab.style.display = hide ? 'none' : '';
+    if (hide && imgContent && imgContent.classList.contains('active')) {
+        switchTab('entrees');
+    }
 }
 
 function updateCategorySelector() {
@@ -285,6 +297,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('app').style.display = 'block';
         document.querySelectorAll('.univers-btn-admin').forEach(b => b.classList.toggle('active', b.dataset.univers === currentUnivers));
         updateCategorySelector();
+        updateTabsVisibility();
         fetchTags();
     }
 });
@@ -342,7 +355,7 @@ function toSlug(name) {
 function updateSlugPreview() {
     const name = document.getElementById('e-name').value.trim();
     const slug = name ? toSlug(name) : null;
-    document.getElementById('slug-preview').innerHTML = slug
+    document.getElementById('slug-preview').textContent = slug
         ? `page : <a href="page.html?slug=${slug}" target="_blank">page.html?slug=${slug}</a>`
         : 'page : —';
 }
@@ -375,7 +388,7 @@ async function addEntree() {
         document.getElementById('e-tags').value='';
         const lienInp = document.getElementById('e-lien');
         if (lienInp) lienInp.value = '';
-        document.getElementById('slug-preview').innerHTML='page : —';
+        document.getElementById('slug-preview').textContent='page : —';
         fetchTags();
     } else {
         const err = await r.json().catch(()=>({}));
