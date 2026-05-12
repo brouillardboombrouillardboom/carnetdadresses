@@ -12,7 +12,7 @@
 input#search {
     box-sizing: border-box;
     height: var(--row-height);
-    line-height: calc(var(--row-height) - 2px);
+    line-height: calc(var(--row-height) - 3px);
 }
 .entry-wrap a {
     display: inline-flex;
