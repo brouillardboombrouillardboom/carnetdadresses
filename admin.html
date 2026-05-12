@@ -1102,9 +1102,16 @@ function renderSectionList() {
         name.className = 'item-name';
         name.textContent = sec.h2; // textContent → XSS safe
 
-        const grid = document.createElement('span');
+        const grid = document.createElement('select');
         grid.className = 'item-sub';
-        grid.textContent = sec.grid;
+        grid.style.cssText = 'font-family:monospace;font-size:11px;border:1px solid #ccc;background:#fafaf8;padding:1px 4px;cursor:pointer;';
+        ['grid1','grid2','grid3','grid3a','grid3b','grid4'].forEach(g => {
+            const o = document.createElement('option');
+            o.value = g; o.textContent = g;
+            if (g === sec.grid) o.selected = true;
+            grid.appendChild(o);
+        });
+        grid.onchange = () => updateSectionGrid(sec.id, grid.value);
 
         const colsSpan = document.createElement('span');
         colsSpan.className = 'item-sub';
@@ -1159,6 +1166,15 @@ async function addSection() {
         document.getElementById('s-colonnes').value = '';
         fetchSections();
     } else { setStatus('s-status', false, '✗ erreur'); }
+}
+
+async function updateSectionGrid(id, newGrid) {
+    const r = await fetch(`${CFG.url}/rest/v1/sections?id=eq.${id}`, {
+        method: 'PATCH', headers: H,
+        body: JSON.stringify({ grid: newGrid })
+    });
+    if (r.ok) fetchSections();
+    else alert('erreur mise à jour grille');
 }
 
 async function deleteSection(id) {
