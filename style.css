@@ -62,7 +62,7 @@ p {text-align: justify;
 }
 
 /* recherche */
-.search-bar { display: flex; align-items: center; gap: 1rem; border-top: 1px solid #1a1a1a; z-index: 1; margin-top: 0.11vw; }
+.search-bar { display: flex; align-items: center; gap: 1rem; z-index: 1; margin-top: 0.11vw; }
 input { flex: 1; font-size: 13px; background: transparent; border: none; padding: 7px 0 7px 1vw; outline: none; color: #1a1a1a; }
 .count { font-size: 11px; color: #bbb; }
 
@@ -345,6 +345,19 @@ section {
     .col-header {
         padding: 3px 0 3px 6px;
     }
+    .univers-btn {
+    flex: 1;
+    font-family: 'Feroniapi-MediumItalic';
+    font-size: 1rem;
+    padding: 3px 0 3px 6px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #1a1a1a;
+    cursor: pointer;
+    color: #1a1a1a;
+    text-align: left;
+    transition: background .15s;
+    }    
 
         @media (max-width: 720px) {
             h1 { 
@@ -357,7 +370,20 @@ section {
             .col-header {
                 padding: 3px 0 3px 6px;
             }
-    }
+            .univers-btn {
+            flex: 1;
+            font-family: 'Feroniapi-MediumItalic';
+            font-size: 1rem;
+            padding: 3px 0 3px 6px;
+            background: transparent;
+            border: none;
+            border-right: 1px solid #1a1a1a;
+            cursor: pointer;
+            color: #1a1a1a;
+            text-align: left;
+            transition: background .15s;
+            }    
+            
 }
 
 /* safari mobile */
@@ -374,6 +400,19 @@ section {
     .col-header {
         padding: 3px 0 3px 6px;
     }
+    .univers-btn {
+    flex: 1;
+    font-family: 'Feroniapi-MediumItalic';
+    font-size: 1rem;
+    padding: 3px 0 3px 6px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #1a1a1a;
+    cursor: pointer;
+    color: #1a1a1a;
+    text-align: left;
+    transition: background .15s;
+    }    
 
         @media (max-width: 720px) {
             h1 { 
@@ -387,5 +426,18 @@ section {
         .col-header {
             padding: 3px 0 3px 6px;
         }
+        .univers-btn {
+        flex: 1;
+        font-family: 'Feroniapi-MediumItalic';
+        font-size: 1rem;
+        padding: 3px 0 3px 6px;
+        background: transparent;
+        border: none;
+        border-right: 1px solid #1a1a1a;
+        cursor: pointer;
+        color: #1a1a1a;
+        text-align: left;
+        transition: background .15s;
+        }    
     }    
 }
