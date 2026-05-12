@@ -68,7 +68,7 @@ input { flex: 1; font-size: 13px; background: transparent; border: none; padding
 
 @media (max-width: 720px) {
     .search-bar {z-index: 1; margin-top: 0;}
-    input { padding: 8px 0 8px 2vw; }
+    input { padding-left: 2vw; }
     .count { text-align: right; }
 }
 
