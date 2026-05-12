@@ -63,7 +63,7 @@ p {text-align: justify;
 
 /* recherche */
 .search-bar { display: flex; align-items: center; gap: 1rem; z-index: 1; margin-top: 0.11vw; }
-input { flex: 1; font-size: 13px; background: transparent; border: none; padding: 7px 0 7px 1vw; outline: none; color: #1a1a1a; }
+input { flex: 1; font-size: 13px; background: transparent; border: none; padding: 6px 0 7px 1vw; outline: none; color: #1a1a1a; }
 .count { font-size: 11px; color: #bbb; }
 
 @media (max-width: 720px) {
