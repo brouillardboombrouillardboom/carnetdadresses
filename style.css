@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
-    --row-height: 28px;
+    --row-height: 30px;
 }
 
 /* éléments uniformes en hauteur — clé : line-height = height pour bypass différences navigateurs */
