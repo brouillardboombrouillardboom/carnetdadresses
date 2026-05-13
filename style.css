@@ -220,7 +220,7 @@ section {
 
 #lightbox { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
 #lightbox.open { display: flex; }
-.lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; cursor: default; }
+.lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; cursor: default; z-index: 0; }
 
 /* figure centrale : image + caption */
 .lb-figure { position: relative; z-index: 1; max-width: 80vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
@@ -238,7 +238,7 @@ section {
     background: none;
     border: none;
     cursor: pointer;
-    z-index: 2;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -261,7 +261,7 @@ section {
     background: none;
     border: none;
     cursor: pointer;
-    z-index: 3;
+    z-index: 10;
     font-family: 'Feroniapi-MediumItalic', monospace;
     font-size: 5vw;
     line-height: 1;
