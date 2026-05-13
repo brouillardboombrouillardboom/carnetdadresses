@@ -45,21 +45,7 @@
         .page-contenu a { color: #1a1a1a; text-decoration: underline; }
         .page-contenu a:hover { opacity: .6; }
 
-        /* lightbox */
-        #lightbox { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
-        #lightbox.open { display: flex; }
-        .lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; }
-        .lb-figure { position: relative; z-index: 1; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .lb-figure img { max-width: 90vw; max-height: 80vh; object-fit: contain; display: block; }
-        .lb-bottom { display: flex; gap: 1rem; align-items: baseline; }
-        .lb-figure figcaption { font-family: monospace; font-size: 11px; color: #aaa; letter-spacing: .04em; }
-        .lb-counter { font-family: monospace; font-size: 11px; color: #666; }
-        .lb-close { position: absolute; top: -2rem; right: 0; background: none; border: none; font-family: monospace; font-size: 14px; color: #aaa; cursor: pointer; padding: 0; }
-        .lb-close:hover { color: #fff; }
-        .lb-prev, .lb-next { position: absolute; top: 50%; transform: translateY(-50%); background: none; border: none; font-family: monospace; font-size: 18px; color: #aaa; cursor: pointer; padding: 0 .5rem; }
-        .lb-prev { left: -2.5rem; }
-        .lb-next { right: -2.5rem; }
-        .lb-prev:hover, .lb-next:hover { color: #fff; }
+        /* lightbox styles dans style.css */
 
         /* mobile : h1 déformé ne doit pas chevaucher le contenu */
         @media (max-width: 720px) {
