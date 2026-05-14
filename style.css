@@ -223,10 +223,10 @@ section {
 .lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; cursor: default; z-index: 0; }
 
 /* figure centrale : image + caption */
-.lb-figure { position: relative; z-index: 1; max-width: 80vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+.lb-figure { position: relative; z-index: 1; max-width: 80vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .lb-figure img,
-.lb-figure canvas.lb-pdf-canvas { max-width: 80vw; max-height: 80vh; object-fit: contain; display: block; pointer-events: auto; }
-.lb-bottom { display: flex; gap: 1rem; align-items: baseline; pointer-events: auto; }
+.lb-figure canvas.lb-pdf-canvas { max-width: 80vw; max-height: 80vh; object-fit: contain; display: block; }
+.lb-bottom { display: flex; gap: 1rem; align-items: baseline; }
 .lb-figure figcaption { font-family: monospace; font-size: 11px; color: #fafaf8; letter-spacing: .04em; }
 .lb-counter { font-family: monospace; font-size: 11px; color: #aaa; }
 
@@ -254,14 +254,14 @@ section {
 
 /* croix de fermeture, taille comparable aux flèches */
 .lb-close {
-    position: absolute;
+    position: fixed;
     top: 2vw; right: 2vw;
     width: 6vw;
     height: 6vw;
     background: none;
     border: none;
     cursor: pointer;
-    z-index: 10;
+    z-index: 20;
     font-family: 'Feroniapi-MediumItalic', monospace;
     font-size: 5vw;
     line-height: 1;
