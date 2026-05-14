@@ -216,43 +216,54 @@ section {
 
 
 
-/* OUVERTURE CLIQUE IMAGE — lightbox plein écran avec zones cliquables */
+/* OUVERTURE CLIQUE IMAGE — lightbox plein écran */
 
-#lightbox { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
-#lightbox.open { display: flex; }
-.lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; cursor: default; z-index: 0; }
+#lightbox { display: none; position: fixed; inset: 0; z-index: 100; }
+#lightbox.open { display: block; }
+.lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.92); opacity: .7; z-index: 0; }
 
-/* figure centrale : image + caption */
-.lb-figure { position: relative; z-index: 1; max-width: 80vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* zones cliquables couvrant chacune une moitié de la page */
+.lb-prev, .lb-next {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 50%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    font-family: 'Feroniapi-MediumItalic', monospace;
+    font-size: 8vw;
+    color: rgba(250,250,248,.4);
+    transition: color .15s;
+    padding: 0 2vw;
+}
+.lb-prev { left: 0; justify-content: flex-start; }
+.lb-next { right: 0; justify-content: flex-end; }
+.lb-prev:hover, .lb-next:hover { color: #fafaf8; }
+
+/* image centrale — au-dessus des zones cliquables, ne reçoit pas le clic */
+.lb-figure {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    max-width: 50vw; max-height: 90vh;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    pointer-events: none;
+}
 .lb-figure img,
-.lb-figure canvas.lb-pdf-canvas { max-width: 80vw; max-height: 80vh; object-fit: contain; display: block; }
+.lb-figure canvas.lb-pdf-canvas {
+    max-width: 50vw; max-height: 80vh;
+    object-fit: contain; display: block;
+}
 .lb-bottom { display: flex; gap: 1rem; align-items: baseline; }
 .lb-figure figcaption { font-family: monospace; font-size: 11px; color: #fafaf8; letter-spacing: .04em; }
 .lb-counter { font-family: monospace; font-size: 11px; color: #aaa; }
 
-/* flèches : zones cliquables sur les côtés */
-.lb-prev, .lb-next {
-    position: absolute;
-    top: 0; bottom: 0;
-    width: 10vw;
-    background: none;
-    border: none;
-    cursor: pointer;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Feroniapi-MediumItalic', monospace;
-    font-size: 8vw;
-    color: rgba(250,250,248,.4);
-    transition: color .15s, background .15s;
-    padding: 0;
-}
-.lb-prev { left: 0; }
-.lb-next { right: 0; }
-.lb-prev:hover, .lb-next:hover { color: #fafaf8; background: rgba(255,255,255,.05); }
-
-/* croix de fermeture, taille comparable aux flèches */
+/* croix en haut à droite, fixée à la fenêtre */
 .lb-close {
     position: fixed;
     top: 2vw; right: 2vw;
@@ -272,12 +283,10 @@ section {
 .lb-close:hover { color: #fafaf8; }
 
 @media (max-width: 720px) {
-    .lb-prev, .lb-next { width: 18vw; font-size: 14vw; }
+    .lb-prev, .lb-next { font-size: 14vw; padding: 0 4vw; }
+    .lb-figure, .lb-figure img, .lb-figure canvas.lb-pdf-canvas { max-width: 70vw; }
     .lb-close { width: 10vw; height: 10vw; font-size: 8vw; top: 3vw; right: 3vw; }
 }
-
-
-
 
 
 /* === univers BIBLIO === */
