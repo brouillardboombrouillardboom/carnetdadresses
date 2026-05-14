@@ -432,8 +432,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const lbCap = document.createElement('figcaption');
     const lbCounter = document.createElement('span'); lbCounter.className = 'lb-counter';
     lbBottom.append(lbCap, lbCounter);
-    lbFig.append(lbClose, lbPrev, lbNext, lbImg, lbBottom);
-    lb.append(lbBack, lbFig);
+    lbFig.append(lbImg, lbBottom);
+    lb.append(lbBack, lbPrev, lbNext, lbFig, lbClose);
     document.body.appendChild(lb);
     lb.querySelector('.lb-backdrop').onclick = closeLightbox;
     lb.querySelector('.lb-close').onclick = closeLightbox;
