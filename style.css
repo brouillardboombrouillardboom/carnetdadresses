@@ -46,7 +46,7 @@ h1 {
     font-family: 'Feroniapi-MediumItalic', monospace;
     font-size: 2.99vw;
     text-transform: uppercase;
-    color: #b0b035;
+    or: #b0b035;
     white-space: nowrap;
     display: block;
     transform-origin: top center;
@@ -68,7 +68,7 @@ h1 {
 h2 {
     font-size: 1rem;
     font-family: 'Inter-medium', monospace;
-    color: #1a1a1a;
+    or: #1a1a1a;
     margin: 0;
     padding: 4px 0 4px 6px;
     border-top: 1px solid #1a1a1a;
@@ -145,7 +145,7 @@ section {
     font-size: 1rem; 
     font-family: 'Feroniapi-MediumItalic';
     color: #1a1a1a; 
-    padding: 0 0 0 6px; 
+    padding: 2px 0 0 6px; 
     margin: 0; 
     border-bottom: 1px solid #1a1a1a; 
     border-top: 1px solid #1a1a1a; 
