@@ -415,6 +415,9 @@ section {
         margin-bottom: 0.85vw;
         transform: translateX(-0.9vw) scaleX(3.95) scaleY(1.22);
     }    
+    .col-header {
+        padding: 0 0 2px 0;
+    }
 
         @media (max-width: 720px) {
             h1 { 
