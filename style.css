@@ -167,7 +167,7 @@ section {
     border-right: 1px solid #1a1a1a;
     border-bottom: 1px solid #1a1a1a;
     background: #b0b035;
-    padding: 0 5px;
+    padding: 0 5px 0 5px;
     white-space: nowrap;
     transition: background .15s, color .15s;
 }
