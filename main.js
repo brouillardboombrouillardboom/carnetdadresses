@@ -113,11 +113,43 @@ function renderCol(id, items) {
     });
 }
 
-let lbPages = [], lbIndex = 0;
+// === état lightbox ===
+let lbPages = [];            // pages internes du multi-pages courant
+let lbIndex = 0;              // index dans lbPages
+let lbGallery = [];           // toutes les images affichées de la grille (pour nav inter-images)
+let lbGalleryIndex = 0;       // index dans lbGallery
+let lbMode = 'image';         // 'image' | 'pdf'
+
+// reconstruit lbGallery à partir des images du DOM (img-item dans col-images)
+function rebuildLbGallery() {
+    lbGallery = [];
+    document.querySelectorAll('#col-images .img-item').forEach(fig => {
+        // chaque img-item correspond à une "image" (mono ou multi-pages)
+        const ds = fig.__lbData;
+        if (ds) lbGallery.push(ds);
+    });
+}
+
+// ouvre l'image #galleryIdx
+function openImageByIndex(idx) {
+    if (!lbGallery.length) return;
+    lbGalleryIndex = Math.max(0, Math.min(lbGallery.length - 1, idx));
+    const item = lbGallery[lbGalleryIndex];
+    if (item.pdf) {
+        openPdfLightbox(item.pdf, item.caption || '');
+    } else {
+        openLightbox(item.pages, item.caption || '', 0);
+    }
+}
 
 function openLightbox(pages, caption, i = 0) {
+    lbMode = 'image';
     lbPages = pages; lbIndex = i;
     const lb = document.getElementById('lightbox');
+    lb.classList.remove('pdf-mode');
+    lb.querySelector('img').style.display = '';
+    const canvas = lb.querySelector('canvas.lb-pdf-canvas');
+    if (canvas) canvas.style.display = 'none';
     lb.querySelector('img').src = lbPages[lbIndex];
     lb.querySelector('figcaption').textContent = caption;
     updateLbNav();
@@ -127,27 +159,53 @@ function openLightbox(pages, caption, i = 0) {
 function updateLbNav() {
     const lb = document.getElementById('lightbox');
     if (lb.classList.contains('pdf-mode')) {
-        lb.querySelector('.lb-prev').style.visibility = lbPdfTotal > 1 && lbPdfPage > 1 ? 'visible' : 'hidden';
-        lb.querySelector('.lb-next').style.visibility = lbPdfTotal > 1 && lbPdfPage < lbPdfTotal ? 'visible' : 'hidden';
         lb.querySelector('.lb-counter').textContent = lbPdfTotal > 1 ? `${lbPdfPage} / ${lbPdfTotal}` : '';
     } else {
-        lb.querySelector('.lb-prev').style.visibility = lbPages.length > 1 && lbIndex > 0 ? 'visible' : 'hidden';
-        lb.querySelector('.lb-next').style.visibility = lbPages.length > 1 && lbIndex < lbPages.length - 1 ? 'visible' : 'hidden';
         lb.querySelector('.lb-counter').textContent = lbPages.length > 1 ? `${lbIndex+1} / ${lbPages.length}` : '';
     }
 }
 
-function lbNav(dir) {
+// navigation entre pages internes (zone 15-50 / 50-85)
+function lbNavPage(dir) {
     const lb = document.getElementById('lightbox');
     if (lb.classList.contains('pdf-mode')) {
-        lbPdfPage = Math.max(1, Math.min(lbPdfTotal, lbPdfPage + dir));
+        const next = lbPdfPage + dir;
+        if (next < 1 || next > lbPdfTotal) return; // hors limite : ne rien faire
+        lbPdfPage = next;
         renderPdfPage();
     } else {
-        lbIndex = Math.max(0, Math.min(lbPages.length - 1, lbIndex + dir));
+        if (lbPages.length <= 1) return; // pas de pages internes
+        const next = lbIndex + dir;
+        if (next < 0 || next > lbPages.length - 1) return;
+        lbIndex = next;
         lb.querySelector('img').src = lbPages[lbIndex];
         updateLbNav();
     }
 }
+
+// navigation entre images de la galerie (zone 0-15 / 85-100)
+function lbNavImage(dir) {
+    if (!lbGallery.length) return;
+    const next = lbGalleryIndex + dir;
+    if (next < 0 || next > lbGallery.length - 1) return;
+    openImageByIndex(next);
+}
+
+// gère un clic sur la lightbox : détermine la zone et appelle la bonne fonction
+function lbHandleClick(e) {
+    // ignorer le clic sur la croix (gérée séparément)
+    if (e.target.classList.contains('lb-close')) return;
+    const w = window.innerWidth;
+    const x = e.clientX;
+    const pct = (x / w) * 100;
+    if (pct < 15) lbNavImage(-1);
+    else if (pct < 50) lbNavPage(-1);
+    else if (pct < 85) lbNavPage(1);
+    else lbNavImage(1);
+}
+
+// rétrocompat : ancien lbNav appelé par les boutons et clavier
+function lbNav(dir) { lbNavPage(dir); }
 
 // === lightbox PDF ===
 let lbPdf = null, lbPdfPage = 1, lbPdfTotal = 1, lbPdfRenderTask = null;
@@ -257,6 +315,8 @@ function renderImages(id, filterTag, searchQuery) {
         figure.dataset.src = pages[0];
         figure.dataset.tags = (img.tags || []).join(',');
         figure.dataset.caption = (img.caption || '').toLowerCase();
+        // référence pour la galerie de la lightbox
+        figure.__lbData = { pages, caption: img.caption || '', pdf: img.pdf || null };
         const wrap = document.createElement('div');
         wrap.className = 'img-wrap';
         const el = document.createElement('img');
@@ -269,12 +329,19 @@ function renderImages(id, filterTag, searchQuery) {
                       || (img.tags || []).find(t => slugSet.has(t))
                       || null;
         }
-        if (img.pdf) {
-            el.onclick = () => openPdfLightbox(img.pdf, img.caption || '');
-        } else if (targetSlug) {
+        if (targetSlug) {
+            // univers film : redirection vers la page du film
             el.onclick = () => window.location.href = `page.html?slug=${encodeURIComponent(targetSlug)}&univers=film`;
         } else {
-            el.onclick = () => openLightbox(pages, img.caption || '', 0);
+            // image ou pdf : ouvrir via la galerie pour permettre la nav inter-images
+            el.onclick = () => {
+                rebuildLbGallery();
+                // trouver l'index de cette figure dans la galerie
+                const allFigs = document.querySelectorAll('#col-images .img-item');
+                let idx = 0;
+                allFigs.forEach((f, i) => { if (f === figure) idx = i; });
+                openImageByIndex(idx);
+            };
         }
         wrap.appendChild(el);
         if (pages.length > 1) {
@@ -435,14 +502,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     lbFig.append(lbImg, lbBottom);
     lb.append(lbBack, lbPrev, lbNext, lbFig, lbClose);
     document.body.appendChild(lb);
-    lb.querySelector('.lb-backdrop').onclick = closeLightbox;
-    lb.querySelector('.lb-close').onclick = closeLightbox;
-    lb.querySelector('.lb-prev').onclick = () => lbNav(-1);
-    lb.querySelector('.lb-next').onclick = () => lbNav(1);
+    lb.querySelector('.lb-close').onclick = (e) => { e.stopPropagation(); closeLightbox(); };
+    // un seul handler de clic sur la lightbox : détermine la zone
+    lb.addEventListener('click', lbHandleClick);
+    // les boutons prev/next conservent leur rôle si jamais on les utilise au clavier
+    lb.querySelector('.lb-prev').onclick = (e) => { e.stopPropagation(); lbNavPage(-1); };
+    lb.querySelector('.lb-next').onclick = (e) => { e.stopPropagation(); lbNavPage(1); };
     document.addEventListener('keydown', e => {
+        const lb = document.getElementById('lightbox');
+        if (!lb.classList.contains('open')) return;
         if (e.key === 'Escape') closeLightbox();
-        if (e.key === 'ArrowLeft') lbNav(-1);
-        if (e.key === 'ArrowRight') lbNav(1);
+        if (e.key === 'ArrowLeft') {
+            // si pas de pages internes, on navigue entre images
+            const hasInternal = lb.classList.contains('pdf-mode') ? lbPdfTotal > 1 : lbPages.length > 1;
+            if (hasInternal) lbNavPage(-1); else lbNavImage(-1);
+        }
+        if (e.key === 'ArrowRight') {
+            const hasInternal = lb.classList.contains('pdf-mode') ? lbPdfTotal > 1 : lbPages.length > 1;
+            if (hasInternal) lbNavPage(1); else lbNavImage(1);
+        }
     });
 
     // initialiser état du sélecteur univers selon valeur stockée

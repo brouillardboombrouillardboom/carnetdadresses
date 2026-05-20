@@ -98,9 +98,9 @@
 <div id="lightbox">
     <div class="lb-backdrop"></div>
     <figure class="lb-figure">
-        <button class="lb-close" onclick="closeLightbox()">✕</button>
-        <button class="lb-prev" onclick="lbNav(-1)">←</button>
-        <button class="lb-next" onclick="lbNav(1)">→</button>
+        <button class="lb-close" onclick="event.stopPropagation(); closeLightbox()">✕</button>
+        <button class="lb-prev" onclick="event.stopPropagation(); lbNav(-1)">←</button>
+        <button class="lb-next" onclick="event.stopPropagation(); lbNav(1)">→</button>
         <img src="" alt="">
         <div class="lb-bottom"><figcaption></figcaption><span class="lb-counter"></span></div>
     </figure>
@@ -165,12 +165,21 @@ function removeTag(t) {
 document.addEventListener('DOMContentLoaded', () => {
     // keyboard nav lightbox
     document.addEventListener('keydown', e => {
+        const lb = document.getElementById('lightbox');
+        if (!lb.classList.contains('open')) return;
         if (e.key === 'Escape') closeLightbox();
-        if (e.key === 'ArrowLeft') lbNav(-1);
-        if (e.key === 'ArrowRight') lbNav(1);
+        if (e.key === 'ArrowLeft') {
+            const hasInternal = lb.classList.contains('pdf-mode') ? lbPdfTotal > 1 : lbPages.length > 1;
+            if (hasInternal) lbNavPage(-1); else lbNavImage(-1);
+        }
+        if (e.key === 'ArrowRight') {
+            const hasInternal = lb.classList.contains('pdf-mode') ? lbPdfTotal > 1 : lbPages.length > 1;
+            if (hasInternal) lbNavPage(1); else lbNavImage(1);
+        }
     });
     // fermer lightbox au clic backdrop
-    document.querySelector('.lb-backdrop').onclick = closeLightbox;
+    // un seul handler de clic sur la lightbox : zones gauche/droite
+    document.getElementById('lightbox').addEventListener('click', lbHandleClick);
 
     document.getElementById('tag-add-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') {
@@ -234,11 +243,15 @@ function renderImages() {
         const el = document.createElement('img');
         el.src = pages[0]; el.alt = img.caption || ''; el.loading = 'lazy';
         el.style.cursor = 'pointer';
-        if (img.pdf) {
-            el.onclick = () => openPdfLightbox(img.pdf, img.caption || '');
-        } else {
-            el.onclick = () => openLightbox(pages, img.caption || '', 0);
-        }
+        // référence pour la galerie de la lightbox
+        figure.__lbData = { pages, caption: img.caption || '', pdf: img.pdf || null };
+        el.onclick = () => {
+            rebuildLbGallery();
+            const allFigs = document.querySelectorAll('#col-images .img-item');
+            let idx = 0;
+            allFigs.forEach((f, i) => { if (f === figure) idx = i; });
+            openImageByIndex(idx);
+        };
         wrap.appendChild(el);
         if (pages.length > 1) {
             let cur = 0;
@@ -266,10 +279,31 @@ function renderImages() {
 
 // --- lightbox ---
 let lbPages = [], lbIndex = 0;
+let lbGallery = [], lbGalleryIndex = 0;
+
+function rebuildLbGallery() {
+    lbGallery = [];
+    document.querySelectorAll('#col-images .img-item').forEach(fig => {
+        const ds = fig.__lbData;
+        if (ds) lbGallery.push(ds);
+    });
+}
+
+function openImageByIndex(idx) {
+    if (!lbGallery.length) return;
+    lbGalleryIndex = Math.max(0, Math.min(lbGallery.length - 1, idx));
+    const item = lbGallery[lbGalleryIndex];
+    if (item.pdf) openPdfLightbox(item.pdf, item.caption || '');
+    else openLightbox(item.pages, item.caption || '', 0);
+}
 
 function openLightbox(pages, caption, i = 0) {
     lbPages = pages; lbIndex = i;
     const lb = document.getElementById('lightbox');
+    lb.classList.remove('pdf-mode');
+    lb.querySelector('img').style.display = '';
+    const canvas = lb.querySelector('canvas.lb-pdf-canvas');
+    if (canvas) canvas.style.display = 'none';
     lb.querySelector('img').src = lbPages[lbIndex];
     lb.querySelector('figcaption').textContent = caption;
     updateLbNav();
@@ -279,27 +313,48 @@ function openLightbox(pages, caption, i = 0) {
 function updateLbNav() {
     const lb = document.getElementById('lightbox');
     if (lb.classList.contains('pdf-mode')) {
-        lb.querySelector('.lb-prev').style.visibility = lbPdfTotal > 1 && lbPdfPage > 1 ? 'visible' : 'hidden';
-        lb.querySelector('.lb-next').style.visibility = lbPdfTotal > 1 && lbPdfPage < lbPdfTotal ? 'visible' : 'hidden';
         lb.querySelector('.lb-counter').textContent = lbPdfTotal > 1 ? `${lbPdfPage} / ${lbPdfTotal}` : '';
     } else {
-        lb.querySelector('.lb-prev').style.visibility = lbPages.length > 1 && lbIndex > 0 ? 'visible' : 'hidden';
-        lb.querySelector('.lb-next').style.visibility = lbPages.length > 1 && lbIndex < lbPages.length - 1 ? 'visible' : 'hidden';
         lb.querySelector('.lb-counter').textContent = lbPages.length > 1 ? `${lbIndex+1} / ${lbPages.length}` : '';
     }
 }
 
-function lbNav(dir) {
+function lbNavPage(dir) {
     const lb = document.getElementById('lightbox');
     if (lb.classList.contains('pdf-mode')) {
-        lbPdfPage = Math.max(1, Math.min(lbPdfTotal, lbPdfPage + dir));
+        const next = lbPdfPage + dir;
+        if (next < 1 || next > lbPdfTotal) return;
+        lbPdfPage = next;
         renderPdfPage();
     } else {
-        lbIndex = Math.max(0, Math.min(lbPages.length - 1, lbIndex + dir));
+        if (lbPages.length <= 1) return;
+        const next = lbIndex + dir;
+        if (next < 0 || next > lbPages.length - 1) return;
+        lbIndex = next;
         lb.querySelector('img').src = lbPages[lbIndex];
         updateLbNav();
     }
 }
+
+function lbNavImage(dir) {
+    if (!lbGallery.length) return;
+    const next = lbGalleryIndex + dir;
+    if (next < 0 || next > lbGallery.length - 1) return;
+    openImageByIndex(next);
+}
+
+function lbHandleClick(e) {
+    if (e.target.classList.contains('lb-close')) return;
+    const w = window.innerWidth;
+    const x = e.clientX;
+    const pct = (x / w) * 100;
+    if (pct < 15) lbNavImage(-1);
+    else if (pct < 50) lbNavPage(-1);
+    else if (pct < 85) lbNavPage(1);
+    else lbNavImage(1);
+}
+
+function lbNav(dir) { lbNavPage(dir); }
 
 function closeLightbox() {
     const lb = document.getElementById('lightbox');
