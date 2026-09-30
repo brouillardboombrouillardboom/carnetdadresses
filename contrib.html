@@ -348,12 +348,17 @@ function renderTagSuggestions() {
     });
 }
 
+// normalise un tag : minuscule, espaces/tirets multiples réduits à un seul tiret
+function normalizeTag(t) {
+    return t.trim().toLowerCase().replace(/\s+/g, '-').replace(/-+/g, '-');
+}
+
 function toSlug(name) {
     return name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 }
 
 function updateSlugPreview() {
-    const name = document.getElementById('e-name').value.trim();
+    const name = document.getElementById('e-name').value.trim().toLowerCase();
     const slug = name ? toSlug(name) : null;
     document.getElementById('slug-preview').textContent = slug
         ? `page : <a href="page.html?slug=${slug}" target="_blank">page.html?slug=${slug}</a>`
@@ -368,11 +373,11 @@ function setStatus(id, ok, msg) {
 
 async function addEntree() {
     const cat = document.getElementById('e-cat').value;
-    const name = document.getElementById('e-name').value.trim();
+    const name = document.getElementById('e-name').value.trim().toLowerCase();
     const tagsRaw = document.getElementById('e-tags').value.trim();
     if (!cat||!name) { setStatus('e-status',false,'⚠ champs manquants'); return; }
     const slug = toSlug(name);
-    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const tags = tagsRaw ? tagsRaw.split(',').map(normalizeTag).filter(Boolean) : [];
     const r = await fetch(`${CFG.url}/rest/v1/entrees`, {
         method:'POST', headers:{...H,Prefer:'return=representation'},
         body: JSON.stringify((() => {
@@ -519,7 +524,7 @@ async function uploadAndSave() {
         : null;
     const caption = sharedCaption;
     const tagsRaw = document.getElementById('i-tags').value.trim();
-    const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+    const tags = tagsRaw ? tagsRaw.split(',').map(normalizeTag).filter(Boolean) : [];
     const progress = document.getElementById('upload-progress');
 
     if (!selectedFiles.length) { setStatus('i-status',false,'⚠ aucun fichier'); return; }
